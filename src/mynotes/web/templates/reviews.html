@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Reviews · mynotes{% endblock %}
+{% block head %}
+<script src="/static/json-enc-2.0.3.js" defer></script>
+{% endblock %}
+{% block content %}
+<h1>Review queues</h1>
+<div class="tabs" role="tablist">
+  <button type="button" hx-get="/ui/partials/reviews/versions" hx-target="#review-panel">Versions</button>
+  <button type="button" hx-get="/ui/partials/reviews/tags" hx-target="#review-panel">Tags</button>
+  <button type="button" hx-get="/ui/partials/reviews/entities" hx-target="#review-panel">Entities</button>
+</div>
+<div id="review-panel">
+  {% include "partials/review_versions.html" %}
+</div>
+{% endblock %}

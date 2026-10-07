@@ -1,0 +1,967 @@
+# Golden set v2 - synthetic version corpus
+# (scripts/eval/generate_version_corpus.py).
+# Answers are correct by construction (from the corpus manifest). HUMAN-REVIEWED on
+# 2026-10-04: the user read the wording and accepted all 55 questions. Regenerate the
+# corpus with the same --seed to reproduce. Never edit between two runs you want to compare.
+meta:
+  created: '2026-10-04'
+  corpus_note: 'synthetic version corpus: 42 families (7 per pattern), 60 distractors, seed 2'
+  review: 'Human-reviewed 2026-10-04 by the user: wording of all 55 questions accepted; answers are
+    correct by construction from the synthetic corpus manifest.'
+  counts:
+    current-version: 42
+    history: 8
+    control: 5
+questions:
+- id: v001
+  question: Qual e o orcamento aprovado do Projeto Coa?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:same-folder
+  - fact:budget
+  - family:f01
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/coa/plano-coa-v2.md
+  reference_answer: 70 000 euros
+  stale_docs:
+  - projects/coa/plano-coa.md
+  stale_values:
+  - 89 500 euros
+- id: v002
+  question: 'Qual era o orcamento do Projeto Coa? as-of: 2025-09-20'
+  language: pt
+  category: history
+  tags:
+  - pattern:same-folder
+  - fact:budget
+  - family:f01
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/coa/plano-coa.md
+  reference_answer: 89 500 euros
+  stale_values:
+  - 70 000 euros
+- id: v003
+  question: Que tecnologia foi escolhida para o backend do Projeto Coa?
+  language: pt
+  category: control
+  tags:
+  - pattern:same-folder
+  - fact:technology
+  - family:f01
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/coa/plano-coa-v2.md
+  reference_answer: TimescaleDB
+- id: v004
+  question: What is the current status of Project Seda?
+  language: en
+  category: current-version
+  tags:
+  - pattern:same-folder
+  - fact:status
+  - family:f02
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/seda/seda-plan-v2.md
+  reference_answer: in development
+  stale_docs:
+  - projects/seda/seda-plan.md
+  stale_values:
+  - in planning
+- id: v005
+  question: 'What was the status of Project Seda? as-of: 2025-10-08'
+  language: en
+  category: history
+  tags:
+  - pattern:same-folder
+  - fact:status
+  - family:f02
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/seda/seda-plan.md
+  reference_answer: in planning
+  stale_values:
+  - in development
+- id: v006
+  question: Qual e o orcamento aprovado do Projeto Sever?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:same-folder
+  - fact:budget
+  - family:f03
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/sever/plano-sever-v3.md
+  reference_answer: 55 000 euros
+  stale_docs:
+  - projects/sever/plano-sever.md
+  - projects/sever/plano-sever-v2.md
+  stale_values:
+  - 11 000 euros
+  - 92 000 euros
+- id: v007
+  question: What is the current status of Project Sorraia?
+  language: en
+  category: current-version
+  tags:
+  - pattern:same-folder
+  - fact:status
+  - family:f04
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/sorraia/sorraia-plan-v2.md
+  reference_answer: in production
+  stale_docs:
+  - projects/sorraia/sorraia-plan.md
+  stale_values:
+  - in development
+- id: v008
+  question: Quem e a pessoa responsavel pelo Projeto Monchique?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:same-folder
+  - fact:owner
+  - family:f05
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/monchique/plano-monchique-v2.md
+  reference_answer: Carla Mendes
+  stale_docs:
+  - projects/monchique/plano-monchique.md
+  stale_values:
+  - Pedro Antunes
+- id: v009
+  question: What is the current status of Project Guadiana?
+  language: en
+  category: current-version
+  tags:
+  - pattern:same-folder
+  - fact:status
+  - family:f06
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/guadiana/guadiana-plan-v3.md
+  reference_answer: in pilot
+  stale_docs:
+  - projects/guadiana/guadiana-plan.md
+  - projects/guadiana/guadiana-plan-v2.md
+  stale_values:
+  - in development
+  - in production
+- id: v010
+  question: Quem e a pessoa responsavel pelo Projeto Alvor?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:same-folder
+  - fact:owner
+  - family:f07
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/alvor/plano-alvor-v2.docx
+  reference_answer: Nuno Fonseca
+  stale_docs:
+  - projects/alvor/plano-alvor.docx
+  stale_values:
+  - Ana Peixoto
+- id: v011
+  question: Qual e o orcamento aprovado do Projeto Neiva?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:archive
+  - fact:budget
+  - family:f08
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/neiva/plano-neiva.md
+  reference_answer: 33 000 euros
+  stale_docs:
+  - projects/neiva/archive/plano-neiva.md
+  stale_values:
+  - 38 500 euros
+- id: v012
+  question: 'Qual era o orcamento do Projeto Neiva? as-of: 2025-08-07'
+  language: pt
+  category: history
+  tags:
+  - pattern:archive
+  - fact:budget
+  - family:f08
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/neiva/archive/plano-neiva.md
+  reference_answer: 38 500 euros
+  stale_values:
+  - 33 000 euros
+- id: v013
+  question: Que tecnologia foi escolhida para o backend do Projeto Neiva?
+  language: pt
+  category: control
+  tags:
+  - pattern:archive
+  - fact:technology
+  - family:f08
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/neiva/plano-neiva.md
+  reference_answer: RabbitMQ
+- id: v014
+  question: What is the current status of Project Minho?
+  language: en
+  category: current-version
+  tags:
+  - pattern:archive
+  - fact:status
+  - family:f09
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/minho/minho-plan.md
+  reference_answer: in pilot
+  stale_docs:
+  - projects/minho/archive/minho-plan.md
+  stale_values:
+  - in production
+- id: v015
+  question: 'What was the status of Project Minho? as-of: 2025-08-21'
+  language: en
+  category: history
+  tags:
+  - pattern:archive
+  - fact:status
+  - family:f09
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/minho/archive/minho-plan.md
+  reference_answer: in production
+  stale_values:
+  - in pilot
+- id: v016
+  question: Qual e o orcamento aprovado do Projeto Alva?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:archive
+  - fact:budget
+  - family:f10
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/alva/plano-alva.md
+  reference_answer: 37 500 euros
+  stale_docs:
+  - projects/alva/archive/plano-alva.md
+  stale_values:
+  - 75 000 euros
+- id: v017
+  question: Who is the person responsible for Project Caia?
+  language: en
+  category: current-version
+  tags:
+  - pattern:archive
+  - fact:owner
+  - family:f11
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/caia/caia-plan.md
+  reference_answer: Teresa Pinho
+  stale_docs:
+  - projects/caia/archive/caia-plan.md
+  stale_values:
+  - Marta Carvalho
+- id: v018
+  question: Qual e o estado atual do Projeto Leca?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:archive
+  - fact:status
+  - family:f12
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/leca/plano-leca.md
+  reference_answer: em piloto
+  stale_docs:
+  - projects/leca/archive/plano-leca.md
+  stale_values:
+  - suspenso
+- id: v019
+  question: Who is the person responsible for Project Nabao?
+  language: en
+  category: current-version
+  tags:
+  - pattern:archive
+  - fact:owner
+  - family:f13
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/nabao/nabao-plan.md
+  reference_answer: Rita Figueiredo
+  stale_docs:
+  - projects/nabao/archive/nabao-plan.md
+  stale_values:
+  - Ana Peixoto
+- id: v020
+  question: Qual e o orcamento aprovado do Projeto Raia?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:archive
+  - fact:budget
+  - family:f14
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/raia/plano-raia.pdf
+  reference_answer: 69 500 euros
+  stale_docs:
+  - projects/raia/archive/plano-raia.pdf
+  stale_values:
+  - 114 500 euros
+- id: v021
+  question: Que tecnologia foi escolhida para o backend do Projeto Tua?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:date-stamped
+  - fact:technology
+  - family:f15
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/tua/2025-10-11-plano-tua.md
+  reference_answer: Svelte
+  stale_docs:
+  - projects/tua/2025-04-20-plano-tua.md
+  stale_values:
+  - Grafana
+- id: v022
+  question: 'Que tecnologia estava escolhida para o backend do Projeto Tua? as-of: 2025-07-16'
+  language: pt
+  category: history
+  tags:
+  - pattern:date-stamped
+  - fact:technology
+  - family:f15
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/tua/2025-04-20-plano-tua.md
+  reference_answer: Grafana
+  stale_values:
+  - Svelte
+- id: v023
+  question: Quem e a pessoa responsavel pelo Projeto Tua?
+  language: pt
+  category: control
+  tags:
+  - pattern:date-stamped
+  - fact:owner
+  - family:f15
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/tua/2025-10-11-plano-tua.md
+  reference_answer: Nuno Fonseca
+- id: v024
+  question: Who is the person responsible for Project Ave?
+  language: en
+  category: current-version
+  tags:
+  - pattern:date-stamped
+  - fact:owner
+  - family:f16
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/ave/2025-10-26-ave-plan.md
+  reference_answer: Beatriz Lopes
+  stale_docs:
+  - projects/ave/2025-03-13-ave-plan.md
+  stale_values:
+  - Sofia Leitao
+- id: v025
+  question: 'Who was responsible for Project Ave? as-of: 2025-07-04'
+  language: en
+  category: history
+  tags:
+  - pattern:date-stamped
+  - fact:owner
+  - family:f16
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/ave/2025-03-13-ave-plan.md
+  reference_answer: Sofia Leitao
+  stale_values:
+  - Beatriz Lopes
+- id: v026
+  question: Qual e o estado atual do Projeto Cintra?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:date-stamped
+  - fact:status
+  - family:f17
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/cintra/2026-06-20-plano-cintra.md
+  reference_answer: em desenvolvimento
+  stale_docs:
+  - projects/cintra/2025-05-06-plano-cintra.md
+  - projects/cintra/2025-12-18-plano-cintra.md
+  stale_values:
+  - em piloto
+  - em producao
+- id: v027
+  question: What is the current status of Project Cobres?
+  language: en
+  category: current-version
+  tags:
+  - pattern:date-stamped
+  - fact:status
+  - family:f18
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/cobres/2026-02-11-cobres-plan.md
+  reference_answer: in production
+  stale_docs:
+  - projects/cobres/2025-04-24-cobres-plan.md
+  stale_values:
+  - in development
+- id: v028
+  question: Qual e o prazo de entrega do Projeto Mondego?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:date-stamped
+  - fact:deadline
+  - family:f19
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/mondego/2025-10-31-plano-mondego.md
+  reference_answer: 12 de abril de 2028
+  stale_docs:
+  - projects/mondego/2025-03-05-plano-mondego.md
+  stale_values:
+  - 17 de marco de 2026
+- id: v029
+  question: What is the delivery deadline for Project Alviela?
+  language: en
+  category: current-version
+  tags:
+  - pattern:date-stamped
+  - fact:deadline
+  - family:f20
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/alviela/2026-07-01-alviela-plan.md
+  reference_answer: 20 November 2029
+  stale_docs:
+  - projects/alviela/2025-04-03-alviela-plan.md
+  - projects/alviela/2025-10-17-alviela-plan.md
+  stale_values:
+  - 18 January 2026
+  - 22 September 2028
+- id: v030
+  question: Qual e o orcamento aprovado do Projeto Ceira?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:date-stamped
+  - fact:budget
+  - family:f21
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/ceira/2025-12-20-plano-ceira.md
+  reference_answer: 40 500 euros
+  stale_docs:
+  - projects/ceira/2025-05-13-plano-ceira.md
+  stale_values:
+  - 108 000 euros
+- id: v031
+  question: Qual e o prazo de entrega do Projeto Xarrama?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:frontmatter
+  - fact:deadline
+  - family:f22
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/xarrama/plano-xarrama-revisto.md
+  reference_answer: 2 de dezembro de 2028
+  stale_docs:
+  - projects/xarrama/plano-xarrama.md
+  stale_values:
+  - 5 de novembro de 2026
+- id: v032
+  question: 'Qual era o prazo de entrega do Projeto Xarrama? as-of: 2025-08-20'
+  language: pt
+  category: history
+  tags:
+  - pattern:frontmatter
+  - fact:deadline
+  - family:f22
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/xarrama/plano-xarrama.md
+  reference_answer: 5 de novembro de 2026
+  stale_values:
+  - 2 de dezembro de 2028
+- id: v033
+  question: Quem e a pessoa responsavel pelo Projeto Xarrama?
+  language: pt
+  category: control
+  tags:
+  - pattern:frontmatter
+  - fact:owner
+  - family:f22
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/xarrama/plano-xarrama-revisto.md
+  reference_answer: Ana Peixoto
+- id: v034
+  question: What is the current status of Project Lima?
+  language: en
+  category: current-version
+  tags:
+  - pattern:frontmatter
+  - fact:status
+  - family:f23
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/lima/lima-plan-revised.md
+  reference_answer: in pilot
+  stale_docs:
+  - projects/lima/lima-plan.md
+  stale_values:
+  - on hold
+- id: v035
+  question: 'What was the status of Project Lima? as-of: 2025-08-04'
+  language: en
+  category: history
+  tags:
+  - pattern:frontmatter
+  - fact:status
+  - family:f23
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/lima/lima-plan.md
+  reference_answer: on hold
+  stale_values:
+  - in pilot
+- id: v036
+  question: Qual e o estado atual do Projeto Almansor?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:frontmatter
+  - fact:status
+  - family:f24
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/almansor/plano-almansor-atualizado.md
+  reference_answer: em planeamento
+  stale_docs:
+  - projects/almansor/plano-almansor.md
+  - projects/almansor/plano-almansor-revisto.md
+  stale_values:
+  - em desenvolvimento
+  - em producao
+- id: v037
+  question: What is the delivery deadline for Project Mira?
+  language: en
+  category: current-version
+  tags:
+  - pattern:frontmatter
+  - fact:deadline
+  - family:f25
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/mira/mira-plan-revised.md
+  reference_answer: 3 August 2028
+  stale_docs:
+  - projects/mira/mira-plan.md
+  stale_values:
+  - 19 October 2026
+- id: v038
+  question: Quem e a pessoa responsavel pelo Projeto Tamega?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:frontmatter
+  - fact:owner
+  - family:f26
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/tamega/plano-tamega-revisto.md
+  reference_answer: Diogo Pacheco
+  stale_docs:
+  - projects/tamega/plano-tamega.md
+  stale_values:
+  - Ines Barros
+- id: v039
+  question: What is the approved budget for Project Orion?
+  language: en
+  category: current-version
+  tags:
+  - pattern:frontmatter
+  - fact:budget
+  - family:f27
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/orion/orion-plan-updated.md
+  reference_answer: 103 500 euros
+  stale_docs:
+  - projects/orion/orion-plan.md
+  - projects/orion/orion-plan-revised.md
+  stale_values:
+  - 100 000 euros
+  - 52 000 euros
+- id: v040
+  question: Quem e a pessoa responsavel pelo Projeto Vega?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:frontmatter
+  - fact:owner
+  - family:f28
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/vega/plano-vega-revisto.md
+  reference_answer: Marta Carvalho
+  stale_docs:
+  - projects/vega/plano-vega.md
+  stale_values:
+  - Carla Mendes
+- id: v041
+  question: Qual e o orcamento aprovado do Projeto Zambujal?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:lookalike
+  - fact:budget
+  - family:f29
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/zambujal/ponto-de-situacao-zambujal.md
+  reference_answer: 8 500 euros
+  stale_docs:
+  - projects/zambujal/notas-arranque-zambujal.md
+  stale_values:
+  - 8 000 euros
+- id: v042
+  question: What is the approved budget for Project Douro?
+  language: en
+  category: current-version
+  tags:
+  - pattern:lookalike
+  - fact:budget
+  - family:f30
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/douro/status-update-douro.md
+  reference_answer: 64 500 euros
+  stale_docs:
+  - projects/douro/kickoff-notes-douro.md
+  stale_values:
+  - 57 500 euros
+- id: v043
+  question: Qual e o estado atual do Projeto Ardila?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:lookalike
+  - fact:status
+  - family:f31
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/ardila/ponto-de-situacao-ardila.md
+  reference_answer: suspenso
+  stale_docs:
+  - projects/ardila/notas-arranque-ardila.md
+  stale_values:
+  - em producao
+- id: v044
+  question: What is the delivery deadline for Project Dao?
+  language: en
+  category: current-version
+  tags:
+  - pattern:lookalike
+  - fact:deadline
+  - family:f32
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/dao/status-update-dao.md
+  reference_answer: 15 May 2028
+  stale_docs:
+  - projects/dao/kickoff-notes-dao.md
+  stale_values:
+  - 20 August 2026
+- id: v045
+  question: Quem e a pessoa responsavel pelo Projeto Lis?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:lookalike
+  - fact:owner
+  - family:f33
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/lis/ponto-de-situacao-lis.md
+  reference_answer: Joao Ribeiro
+  stale_docs:
+  - projects/lis/notas-arranque-lis.md
+  stale_values:
+  - Pedro Antunes
+- id: v046
+  question: What is the approved budget for Project Odelouca?
+  language: en
+  category: current-version
+  tags:
+  - pattern:lookalike
+  - fact:budget
+  - family:f34
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/odelouca/status-update-odelouca.md
+  reference_answer: 82 500 euros
+  stale_docs:
+  - projects/odelouca/kickoff-notes-odelouca.md
+  stale_values:
+  - 99 500 euros
+- id: v047
+  question: Qual e o estado atual do Projeto Sabor?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:lookalike
+  - fact:status
+  - family:f35
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/sabor/ponto-de-situacao-sabor.md
+  reference_answer: em producao
+  stale_docs:
+  - projects/sabor/notas-arranque-sabor.md
+  stale_values:
+  - suspenso
+- id: v048
+  question: Quem e a pessoa responsavel pelo Projeto Paiva?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:in-place
+  - fact:owner
+  - family:f36
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/paiva/plano-paiva.md
+  reference_answer: Rita Figueiredo
+  stale_values:
+  - Pedro Antunes
+- id: v049
+  question: Que tecnologia foi escolhida para o backend do Projeto Paiva?
+  language: pt
+  category: control
+  tags:
+  - pattern:in-place
+  - fact:technology
+  - family:f36
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/paiva/plano-paiva.md
+  reference_answer: PostgreSQL
+- id: v050
+  question: What is the current status of Project Oeiras?
+  language: en
+  category: current-version
+  tags:
+  - pattern:in-place
+  - fact:status
+  - family:f37
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/oeiras/oeiras-plan.md
+  reference_answer: in development
+  stale_values:
+  - in production
+- id: v051
+  question: Qual e o prazo de entrega do Projeto Lince?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:in-place
+  - fact:deadline
+  - family:f38
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/lince/plano-lince.md
+  reference_answer: 5 de agosto de 2028
+  stale_values:
+  - 19 de junho de 2026
+- id: v052
+  question: Who is the person responsible for Project Cavado?
+  language: en
+  category: current-version
+  tags:
+  - pattern:in-place
+  - fact:owner
+  - family:f39
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/cavado/cavado-plan.md
+  reference_answer: Hugo Martins
+  stale_values:
+  - Joao Ribeiro
+- id: v053
+  question: Quem e a pessoa responsavel pelo Projeto Degebe?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:in-place
+  - fact:owner
+  - family:f40
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/degebe/plano-degebe.md
+  reference_answer: Ines Barros
+  stale_values:
+  - Sofia Leitao
+- id: v054
+  question: What is the approved budget for Project Arade?
+  language: en
+  category: current-version
+  tags:
+  - pattern:in-place
+  - fact:budget
+  - family:f41
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/arade/arade-plan.md
+  reference_answer: 44 000 euros
+  stale_values:
+  - 6 500 euros
+- id: v055
+  question: Qual e o estado atual do Projeto Vouga?
+  language: pt
+  category: current-version
+  tags:
+  - pattern:in-place
+  - fact:status
+  - family:f42
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - projects/vouga/plano-vouga.md
+  reference_answer: suspenso
+  stale_values:
+  - em desenvolvimento

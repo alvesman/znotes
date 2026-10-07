@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="htmx-config" content='{"includeIndicatorStyles":false}'>
+  <title>{% block title %}mynotes{% endblock %}</title>
+  <link rel="icon" href="/static/favicon.ico" sizes="16x16 32x32">
+  <link rel="stylesheet" href="{{ asset('app.css') }}">
+  <script src="/static/htmx-2.0.11.min.js" defer></script>
+  {% block head %}{% endblock %}
+</head>
+<body data-can-open-files="{{ 'true' if can_open_files else 'false' }}">
+  <nav class="topbar">
+    <span class="brand">mynotes</span>
+    <a href="/ui/chat"{% if nav == "chat" %} aria-current="page"{% endif %}>Chat</a>
+    <a href="/ui/search"{% if nav == "search" %} aria-current="page"{% endif %}>Search</a>
+    <a href="/ui/history"{% if nav == "history" %} aria-current="page"{% endif %}>History</a>
+    <a href="/ui/reviews"{% if nav == "reviews" %} aria-current="page"{% endif %}>Reviews</a>
+    <a href="/ui/graph"{% if nav == "graph" %} aria-current="page"{% endif %}>Graph</a>
+    <a href="/ui/status"{% if nav == "status" %} aria-current="page"{% endif %}>Status</a>
+    <a href="/ui/help"{% if nav == "help" %} aria-current="page"{% endif %}>Help</a>
+  </nav>
+  <main class="content">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="site-footer muted">
+    mynotes {{ VERSION }} · free software under the
+    <a href="https://www.gnu.org/licenses/agpl-3.0.html" rel="noopener" target="_blank">GNU AGPL v3</a> ·
+    <a href="{{ PROJECT_URL }}" rel="noopener" target="_blank">Source code</a>
+  </footer>
+</body>
+</html>

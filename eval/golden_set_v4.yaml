@@ -1,0 +1,951 @@
+# Golden set v4 - synthetic meeting-series corpus
+# (scripts/eval/generate_series_corpus.py).
+# GENERATED, not human-reviewed. Answers are correct by construction; review the
+# wording. Regenerate with the same --seed to reproduce. Never edit between two
+# runs you want to compare.
+meta:
+  created: '2026-10-07'
+  corpus_note: 'synthetic meeting-series corpus: 6 series x 20 weeks, seed 2'
+  review: 'GENERATED (not human-reviewed): questions are correct by construction from the synthetic corpus
+    manifest; review the wording, not the answers.'
+  counts:
+    series-date: 12
+    series-latest: 18
+    series-asof: 12
+    series-change: 12
+    control: 6
+questions:
+- id: s001
+  question: Na reuniao de 2026-01-12 (Reuniao semanal Atlas), quem ficou responsavel por deploy de tenants?
+  language: pt
+  category: series-date
+  tags:
+  - series:atlas
+  - kind:owner
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/atlas/2026-01-12.md
+  reference_answer: Tomas Correia
+- id: s002
+  question: Na reuniao de 2026-05-11 (Reuniao semanal Atlas), quem ficou responsavel por notificacoes
+    nas apps?
+  language: pt
+  category: series-date
+  tags:
+  - series:atlas
+  - kind:owner
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/atlas/2026-05-11.md
+  reference_answer: Tomas Correia
+- id: s003
+  question: Qual e o estado atual de 'Deploy do Motor de Busca' na Reuniao semanal Atlas?
+  language: pt
+  category: series-latest
+  tags:
+  - series:atlas
+  - kind:latest
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/atlas/2026-03-16.md
+  - meetings/atlas/2026-03-23.md
+  - meetings/atlas/2026-03-30.md
+  - meetings/atlas/2026-04-06.md
+  - meetings/atlas/2026-04-13.md
+  - meetings/atlas/2026-04-20.md
+  - meetings/atlas/2026-04-27.md
+  - meetings/atlas/2026-05-04.md
+  - meetings/atlas/2026-05-11.md
+  - meetings/atlas/2026-05-18.md
+  reference_answer: producao
+- id: s004
+  question: Qual e o estado atual de 'Migracao do mailserver' na Reuniao semanal Atlas?
+  language: pt
+  category: series-latest
+  tags:
+  - series:atlas
+  - kind:latest
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/atlas/2026-02-23.md
+  - meetings/atlas/2026-03-02.md
+  - meetings/atlas/2026-03-09.md
+  - meetings/atlas/2026-03-16.md
+  - meetings/atlas/2026-03-23.md
+  - meetings/atlas/2026-03-30.md
+  - meetings/atlas/2026-04-06.md
+  - meetings/atlas/2026-04-13.md
+  - meetings/atlas/2026-04-20.md
+  - meetings/atlas/2026-04-27.md
+  - meetings/atlas/2026-05-04.md
+  - meetings/atlas/2026-05-11.md
+  - meetings/atlas/2026-05-18.md
+  reference_answer: concluida
+- id: s005
+  question: Qual e o estado atual de 'Ambiente do tenant de demo' na Reuniao semanal Atlas?
+  language: pt
+  category: series-latest
+  tags:
+  - series:atlas
+  - kind:latest
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/atlas/2026-04-20.md
+  - meetings/atlas/2026-04-27.md
+  - meetings/atlas/2026-05-04.md
+  - meetings/atlas/2026-05-11.md
+  - meetings/atlas/2026-05-18.md
+  reference_answer: entregue ao cliente
+- id: s006
+  question: 'as-of: 2026-01-19 Qual era o estado de ''Migracao do mailserver'' na Reuniao semanal Atlas?'
+  language: pt
+  category: series-asof
+  tags:
+  - series:atlas
+  - kind:asof
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/atlas/2026-01-05.md
+  - meetings/atlas/2026-01-12.md
+  - meetings/atlas/2026-01-19.md
+  reference_answer: planeada
+- id: s007
+  question: 'as-of: 2026-02-16 Qual era o estado de ''Migracao do mailserver'' na Reuniao semanal Atlas?'
+  language: pt
+  category: series-asof
+  tags:
+  - series:atlas
+  - kind:asof
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/atlas/2026-01-26.md
+  - meetings/atlas/2026-02-02.md
+  - meetings/atlas/2026-02-09.md
+  - meetings/atlas/2026-02-16.md
+  reference_answer: em curso
+- id: s008
+  question: Em que reuniao da Reuniao semanal Atlas 'Migracao do mailserver' passou a em curso?
+  language: pt
+  category: series-change
+  tags:
+  - series:atlas
+  - kind:change
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/atlas/2026-01-26.md
+  reference_answer: Na reuniao de 2026-01-26
+- id: s009
+  question: Em que reuniao da Reuniao semanal Atlas 'Migracao do mailserver' passou a concluida?
+  language: pt
+  category: series-change
+  tags:
+  - series:atlas
+  - kind:change
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/atlas/2026-02-23.md
+  reference_answer: Na reuniao de 2026-02-23
+- id: s010
+  question: O que se decidiu sobre o repositorio de ambientes na Reuniao semanal Atlas?
+  language: pt
+  category: control
+  tags:
+  - series:atlas
+  - kind:decision
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/atlas/2026-02-16.md
+  reference_answer: adotar o repositorio de ambientes como padrao
+- id: s011
+  question: Na reuniao de 2026-01-12 (Reuniao semanal Boreal), quem ficou responsavel por notificacoes
+    nas apps?
+  language: pt
+  category: series-date
+  tags:
+  - series:boreal
+  - kind:owner
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/boreal/2026-01-12.md
+  reference_answer: Leonor Vaz
+- id: s012
+  question: Na reuniao de 2026-05-11 (Reuniao semanal Boreal), quem ficou responsavel por traducao do
+    conteudo dinamico?
+  language: pt
+  category: series-date
+  tags:
+  - series:boreal
+  - kind:owner
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/boreal/2026-05-11.md
+  reference_answer: Tomas Correia
+- id: s013
+  question: Qual e o estado atual de 'Deploy do Conversor' na Reuniao semanal Boreal?
+  language: pt
+  category: series-latest
+  tags:
+  - series:boreal
+  - kind:latest
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/boreal/2026-04-27.md
+  - meetings/boreal/2026-05-04.md
+  - meetings/boreal/2026-05-11.md
+  - meetings/boreal/2026-05-18.md
+  reference_answer: DEMO
+- id: s014
+  question: Qual e o estado atual de 'Migracao do mailserver' na Reuniao semanal Boreal?
+  language: pt
+  category: series-latest
+  tags:
+  - series:boreal
+  - kind:latest
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/boreal/2026-05-11.md
+  - meetings/boreal/2026-05-18.md
+  reference_answer: concluida
+- id: s015
+  question: Qual e o estado atual de 'Dashboards de contadores' na Reuniao semanal Boreal?
+  language: pt
+  category: series-latest
+  tags:
+  - series:boreal
+  - kind:latest
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/boreal/2026-05-18.md
+  reference_answer: entregue
+- id: s016
+  question: 'as-of: 2026-03-30 Qual era o estado de ''Migracao do mailserver'' na Reuniao semanal Boreal?'
+  language: pt
+  category: series-asof
+  tags:
+  - series:boreal
+  - kind:asof
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/boreal/2026-01-05.md
+  - meetings/boreal/2026-01-12.md
+  - meetings/boreal/2026-01-19.md
+  - meetings/boreal/2026-01-26.md
+  - meetings/boreal/2026-02-02.md
+  - meetings/boreal/2026-02-09.md
+  - meetings/boreal/2026-02-16.md
+  - meetings/boreal/2026-02-23.md
+  - meetings/boreal/2026-03-02.md
+  - meetings/boreal/2026-03-09.md
+  - meetings/boreal/2026-03-16.md
+  - meetings/boreal/2026-03-23.md
+  - meetings/boreal/2026-03-30.md
+  reference_answer: planeada
+- id: s017
+  question: 'as-of: 2026-03-30 Qual era o estado de ''Dashboards de contadores'' na Reuniao semanal Boreal?'
+  language: pt
+  category: series-asof
+  tags:
+  - series:boreal
+  - kind:asof
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/boreal/2026-01-05.md
+  - meetings/boreal/2026-01-12.md
+  - meetings/boreal/2026-01-19.md
+  - meetings/boreal/2026-01-26.md
+  - meetings/boreal/2026-02-02.md
+  - meetings/boreal/2026-02-09.md
+  - meetings/boreal/2026-02-16.md
+  - meetings/boreal/2026-02-23.md
+  - meetings/boreal/2026-03-02.md
+  - meetings/boreal/2026-03-09.md
+  - meetings/boreal/2026-03-16.md
+  - meetings/boreal/2026-03-23.md
+  - meetings/boreal/2026-03-30.md
+  reference_answer: por iniciar
+- id: s018
+  question: Em que reuniao da Reuniao semanal Boreal 'Migracao do mailserver' passou a em curso?
+  language: pt
+  category: series-change
+  tags:
+  - series:boreal
+  - kind:change
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/boreal/2026-04-06.md
+  reference_answer: Na reuniao de 2026-04-06
+- id: s019
+  question: Em que reuniao da Reuniao semanal Boreal 'Dashboards de contadores' passou a em curso?
+  language: pt
+  category: series-change
+  tags:
+  - series:boreal
+  - kind:change
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/boreal/2026-04-06.md
+  reference_answer: Na reuniao de 2026-04-06
+- id: s020
+  question: O que se decidiu sobre o vista de nuvem de etiquetas na Reuniao semanal Boreal?
+  language: pt
+  category: control
+  tags:
+  - series:boreal
+  - kind:decision
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/boreal/2026-05-04.md
+  reference_answer: adotar o vista de nuvem de etiquetas como padrao
+- id: s021
+  question: Na reuniao de 2026-01-12 (Daily equipa de plataforma), quem ficou responsavel por deploy de
+    tenants?
+  language: pt
+  category: series-date
+  tags:
+  - series:plataforma
+  - kind:owner
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/plataforma/2026-01-12.md
+  reference_answer: Nuno Faria
+- id: s022
+  question: Na reuniao de 2026-05-11 (Daily equipa de plataforma), quem ficou responsavel por deploy de
+    tenants?
+  language: pt
+  category: series-date
+  tags:
+  - series:plataforma
+  - kind:owner
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/plataforma/2026-05-11.md
+  reference_answer: Leonor Vaz
+- id: s023
+  question: Qual e o estado atual de 'Migracao do mailserver' na Daily equipa de plataforma?
+  language: pt
+  category: series-latest
+  tags:
+  - series:plataforma
+  - kind:latest
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/plataforma/2026-05-04.md
+  - meetings/plataforma/2026-05-11.md
+  - meetings/plataforma/2026-05-18.md
+  reference_answer: concluida
+- id: s024
+  question: Qual e o estado atual de 'Deploy do Conversor' na Daily equipa de plataforma?
+  language: pt
+  category: series-latest
+  tags:
+  - series:plataforma
+  - kind:latest
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/plataforma/2026-05-11.md
+  - meetings/plataforma/2026-05-18.md
+  reference_answer: DEMO
+- id: s025
+  question: Qual e o estado atual de 'Dashboards de contadores' na Daily equipa de plataforma?
+  language: pt
+  category: series-latest
+  tags:
+  - series:plataforma
+  - kind:latest
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/plataforma/2026-05-18.md
+  reference_answer: entregue
+- id: s026
+  question: 'as-of: 2026-03-16 Qual era o estado de ''Migracao do mailserver'' na Daily equipa de plataforma?'
+  language: pt
+  category: series-asof
+  tags:
+  - series:plataforma
+  - kind:asof
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/plataforma/2026-01-05.md
+  - meetings/plataforma/2026-01-12.md
+  - meetings/plataforma/2026-01-19.md
+  - meetings/plataforma/2026-01-26.md
+  - meetings/plataforma/2026-02-02.md
+  - meetings/plataforma/2026-02-09.md
+  - meetings/plataforma/2026-02-16.md
+  - meetings/plataforma/2026-02-23.md
+  - meetings/plataforma/2026-03-02.md
+  - meetings/plataforma/2026-03-09.md
+  - meetings/plataforma/2026-03-16.md
+  reference_answer: planeada
+- id: s027
+  question: 'as-of: 2026-03-16 Qual era o estado de ''Deploy do Conversor'' na Daily equipa de plataforma?'
+  language: pt
+  category: series-asof
+  tags:
+  - series:plataforma
+  - kind:asof
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/plataforma/2026-01-05.md
+  - meetings/plataforma/2026-01-12.md
+  - meetings/plataforma/2026-01-19.md
+  - meetings/plataforma/2026-01-26.md
+  - meetings/plataforma/2026-02-02.md
+  - meetings/plataforma/2026-02-09.md
+  - meetings/plataforma/2026-02-16.md
+  - meetings/plataforma/2026-02-23.md
+  - meetings/plataforma/2026-03-02.md
+  - meetings/plataforma/2026-03-09.md
+  - meetings/plataforma/2026-03-16.md
+  reference_answer: em desenvolvimento
+- id: s028
+  question: Em que reuniao da Daily equipa de plataforma 'Migracao do mailserver' passou a em curso?
+  language: pt
+  category: series-change
+  tags:
+  - series:plataforma
+  - kind:change
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/plataforma/2026-03-23.md
+  reference_answer: Na reuniao de 2026-03-23
+- id: s029
+  question: Em que reuniao da Daily equipa de plataforma 'Deploy do Conversor' passou a dev?
+  language: pt
+  category: series-change
+  tags:
+  - series:plataforma
+  - kind:change
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/plataforma/2026-03-23.md
+  reference_answer: Na reuniao de 2026-03-23
+- id: s030
+  question: O que se decidiu sobre o catalogo de dispositivos na Daily equipa de plataforma?
+  language: pt
+  category: control
+  tags:
+  - series:plataforma
+  - kind:decision
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/plataforma/2026-02-02.md
+  reference_answer: adotar o catalogo de dispositivos como padrao
+- id: s031
+  question: Na reuniao de 2026-01-12 (Status dos dashboards), quem ficou responsavel por device commissioning?
+  language: pt
+  category: series-date
+  tags:
+  - series:dashboards
+  - kind:owner
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/dashboards/2026-01-12.md
+  reference_answer: Marta Quelhas
+- id: s032
+  question: Na reuniao de 2026-05-11 (Status dos dashboards), quem ficou responsavel por traducao do conteudo
+    dinamico?
+  language: pt
+  category: series-date
+  tags:
+  - series:dashboards
+  - kind:owner
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/dashboards/2026-05-11.md
+  reference_answer: Rui Tavares
+- id: s033
+  question: Qual e o estado atual de 'Ambiente do tenant de demo' na Status dos dashboards?
+  language: pt
+  category: series-latest
+  tags:
+  - series:dashboards
+  - kind:latest
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/dashboards/2026-04-20.md
+  - meetings/dashboards/2026-04-27.md
+  - meetings/dashboards/2026-05-04.md
+  - meetings/dashboards/2026-05-11.md
+  - meetings/dashboards/2026-05-18.md
+  reference_answer: entregue ao cliente
+- id: s034
+  question: Qual e o estado atual de 'Deploy do Conversor' na Status dos dashboards?
+  language: pt
+  category: series-latest
+  tags:
+  - series:dashboards
+  - kind:latest
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/dashboards/2026-04-06.md
+  - meetings/dashboards/2026-04-13.md
+  - meetings/dashboards/2026-04-20.md
+  - meetings/dashboards/2026-04-27.md
+  - meetings/dashboards/2026-05-04.md
+  - meetings/dashboards/2026-05-11.md
+  - meetings/dashboards/2026-05-18.md
+  reference_answer: DEMO
+- id: s035
+  question: Qual e o estado atual de 'Dashboards de contadores' na Status dos dashboards?
+  language: pt
+  category: series-latest
+  tags:
+  - series:dashboards
+  - kind:latest
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/dashboards/2026-04-06.md
+  - meetings/dashboards/2026-04-13.md
+  - meetings/dashboards/2026-04-20.md
+  - meetings/dashboards/2026-04-27.md
+  - meetings/dashboards/2026-05-04.md
+  - meetings/dashboards/2026-05-11.md
+  - meetings/dashboards/2026-05-18.md
+  reference_answer: entregue
+- id: s036
+  question: 'as-of: 2026-01-19 Qual era o estado de ''Ambiente do tenant de demo'' na Status dos dashboards?'
+  language: pt
+  category: series-asof
+  tags:
+  - series:dashboards
+  - kind:asof
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/dashboards/2026-01-05.md
+  - meetings/dashboards/2026-01-12.md
+  - meetings/dashboards/2026-01-19.md
+  reference_answer: a preparar
+- id: s037
+  question: 'as-of: 2026-01-19 Qual era o estado de ''Deploy do Conversor'' na Status dos dashboards?'
+  language: pt
+  category: series-asof
+  tags:
+  - series:dashboards
+  - kind:asof
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/dashboards/2026-01-05.md
+  - meetings/dashboards/2026-01-12.md
+  - meetings/dashboards/2026-01-19.md
+  reference_answer: em desenvolvimento
+- id: s038
+  question: Em que reuniao da Status dos dashboards 'Ambiente do tenant de demo' passou a pronto?
+  language: pt
+  category: series-change
+  tags:
+  - series:dashboards
+  - kind:change
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/dashboards/2026-01-26.md
+  reference_answer: Na reuniao de 2026-01-26
+- id: s039
+  question: Em que reuniao da Status dos dashboards 'Deploy do Conversor' passou a dev?
+  language: pt
+  category: series-change
+  tags:
+  - series:dashboards
+  - kind:change
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/dashboards/2026-01-26.md
+  reference_answer: Na reuniao de 2026-01-26
+- id: s040
+  question: O que se decidiu sobre o modulo de exportacao na Status dos dashboards?
+  language: pt
+  category: control
+  tags:
+  - series:dashboards
+  - kind:decision
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/dashboards/2026-05-04.md
+  reference_answer: retirar o modulo de exportacao do ambito desta fase
+- id: s041
+  question: Na reuniao de 2026-01-12 (Reuniao de coordenacao Norte), quem ficou responsavel por notificacoes
+    nas apps?
+  language: pt
+  category: series-date
+  tags:
+  - series:norte
+  - kind:owner
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/norte/2026-01-12.md
+  reference_answer: Leonor Vaz
+- id: s042
+  question: Na reuniao de 2026-05-11 (Reuniao de coordenacao Norte), quem ficou responsavel por estatisticas
+    da base de dados?
+  language: pt
+  category: series-date
+  tags:
+  - series:norte
+  - kind:owner
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/norte/2026-05-11.md
+  reference_answer: Marta Quelhas
+- id: s043
+  question: Qual e o estado atual de 'Dashboards de contadores' na Reuniao de coordenacao Norte?
+  language: pt
+  category: series-latest
+  tags:
+  - series:norte
+  - kind:latest
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/norte/2026-03-23.md
+  - meetings/norte/2026-03-30.md
+  - meetings/norte/2026-04-06.md
+  - meetings/norte/2026-04-13.md
+  - meetings/norte/2026-04-20.md
+  - meetings/norte/2026-04-27.md
+  - meetings/norte/2026-05-04.md
+  - meetings/norte/2026-05-11.md
+  - meetings/norte/2026-05-18.md
+  reference_answer: entregue
+- id: s044
+  question: Qual e o estado atual de 'Ambiente do tenant de demo' na Reuniao de coordenacao Norte?
+  language: pt
+  category: series-latest
+  tags:
+  - series:norte
+  - kind:latest
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/norte/2026-04-27.md
+  - meetings/norte/2026-05-04.md
+  - meetings/norte/2026-05-11.md
+  - meetings/norte/2026-05-18.md
+  reference_answer: entregue ao cliente
+- id: s045
+  question: Qual e o estado atual de 'Deploy do Motor de Busca' na Reuniao de coordenacao Norte?
+  language: pt
+  category: series-latest
+  tags:
+  - series:norte
+  - kind:latest
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/norte/2026-04-13.md
+  - meetings/norte/2026-04-20.md
+  - meetings/norte/2026-04-27.md
+  - meetings/norte/2026-05-04.md
+  - meetings/norte/2026-05-11.md
+  - meetings/norte/2026-05-18.md
+  reference_answer: producao
+- id: s046
+  question: 'as-of: 2026-01-12 Qual era o estado de ''Dashboards de contadores'' na Reuniao de coordenacao
+    Norte?'
+  language: pt
+  category: series-asof
+  tags:
+  - series:norte
+  - kind:asof
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/norte/2026-01-05.md
+  - meetings/norte/2026-01-12.md
+  reference_answer: por iniciar
+- id: s047
+  question: 'as-of: 2026-01-19 Qual era o estado de ''Ambiente do tenant de demo'' na Reuniao de coordenacao
+    Norte?'
+  language: pt
+  category: series-asof
+  tags:
+  - series:norte
+  - kind:asof
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/norte/2026-01-05.md
+  - meetings/norte/2026-01-12.md
+  - meetings/norte/2026-01-19.md
+  reference_answer: a preparar
+- id: s048
+  question: Em que reuniao da Reuniao de coordenacao Norte 'Dashboards de contadores' passou a em curso?
+  language: pt
+  category: series-change
+  tags:
+  - series:norte
+  - kind:change
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/norte/2026-01-19.md
+  reference_answer: Na reuniao de 2026-01-19
+- id: s049
+  question: Em que reuniao da Reuniao de coordenacao Norte 'Ambiente do tenant de demo' passou a pronto?
+  language: pt
+  category: series-change
+  tags:
+  - series:norte
+  - kind:change
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/norte/2026-01-26.md
+  reference_answer: Na reuniao de 2026-01-26
+- id: s050
+  question: O que se decidiu sobre o gestor de citacoes na Reuniao de coordenacao Norte?
+  language: pt
+  category: control
+  tags:
+  - series:norte
+  - kind:decision
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/norte/2026-03-09.md
+  reference_answer: adiar a entrega de gestor de citacoes uma semana
+- id: s051
+  question: Na reuniao de 2026-01-12 (Ponto de situacao Catalogo), quem ficou responsavel por notificacoes
+    nas apps?
+  language: pt
+  category: series-date
+  tags:
+  - series:catalogo
+  - kind:owner
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/catalogo/2026-01-12.md
+  reference_answer: Rui Tavares
+- id: s052
+  question: Na reuniao de 2026-05-11 (Ponto de situacao Catalogo), quem ficou responsavel por deploy de
+    tenants?
+  language: pt
+  category: series-date
+  tags:
+  - series:catalogo
+  - kind:owner
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/catalogo/2026-05-11.md
+  reference_answer: Inês Barroso
+- id: s053
+  question: Qual e o estado atual de 'Migracao do mailserver' na Ponto de situacao Catalogo?
+  language: pt
+  category: series-latest
+  tags:
+  - series:catalogo
+  - kind:latest
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/catalogo/2026-02-16.md
+  - meetings/catalogo/2026-02-23.md
+  - meetings/catalogo/2026-03-02.md
+  - meetings/catalogo/2026-03-09.md
+  - meetings/catalogo/2026-03-16.md
+  - meetings/catalogo/2026-03-23.md
+  - meetings/catalogo/2026-03-30.md
+  - meetings/catalogo/2026-04-06.md
+  - meetings/catalogo/2026-04-13.md
+  - meetings/catalogo/2026-04-20.md
+  - meetings/catalogo/2026-04-27.md
+  - meetings/catalogo/2026-05-04.md
+  - meetings/catalogo/2026-05-11.md
+  - meetings/catalogo/2026-05-18.md
+  reference_answer: concluida
+- id: s054
+  question: Qual e o estado atual de 'Deploy do Motor de Busca' na Ponto de situacao Catalogo?
+  language: pt
+  category: series-latest
+  tags:
+  - series:catalogo
+  - kind:latest
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/catalogo/2026-05-18.md
+  reference_answer: producao
+- id: s055
+  question: Qual e o estado atual de 'Deploy do Conversor' na Ponto de situacao Catalogo?
+  language: pt
+  category: series-latest
+  tags:
+  - series:catalogo
+  - kind:latest
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/catalogo/2026-04-27.md
+  - meetings/catalogo/2026-05-04.md
+  - meetings/catalogo/2026-05-11.md
+  - meetings/catalogo/2026-05-18.md
+  reference_answer: DEMO
+- id: s056
+  question: 'as-of: 2026-01-19 Qual era o estado de ''Migracao do mailserver'' na Ponto de situacao Catalogo?'
+  language: pt
+  category: series-asof
+  tags:
+  - series:catalogo
+  - kind:asof
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/catalogo/2026-01-05.md
+  - meetings/catalogo/2026-01-12.md
+  - meetings/catalogo/2026-01-19.md
+  reference_answer: planeada
+- id: s057
+  question: 'as-of: 2026-02-02 Qual era o estado de ''Deploy do Conversor'' na Ponto de situacao Catalogo?'
+  language: pt
+  category: series-asof
+  tags:
+  - series:catalogo
+  - kind:asof
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/catalogo/2026-01-05.md
+  - meetings/catalogo/2026-01-12.md
+  - meetings/catalogo/2026-01-19.md
+  - meetings/catalogo/2026-01-26.md
+  - meetings/catalogo/2026-02-02.md
+  reference_answer: em desenvolvimento
+- id: s058
+  question: Em que reuniao da Ponto de situacao Catalogo 'Migracao do mailserver' passou a em curso?
+  language: pt
+  category: series-change
+  tags:
+  - series:catalogo
+  - kind:change
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/catalogo/2026-01-26.md
+  reference_answer: Na reuniao de 2026-01-26
+- id: s059
+  question: Em que reuniao da Ponto de situacao Catalogo 'Deploy do Conversor' passou a dev?
+  language: pt
+  category: series-change
+  tags:
+  - series:catalogo
+  - kind:change
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/catalogo/2026-02-09.md
+  reference_answer: Na reuniao de 2026-02-09
+- id: s060
+  question: O que se decidiu sobre o quadro de tarefas na Ponto de situacao Catalogo?
+  language: pt
+  category: control
+  tags:
+  - series:catalogo
+  - kind:decision
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - meetings/catalogo/2026-05-04.md
+  reference_answer: congelar alteracoes ao quadro de tarefas ate ao fecho

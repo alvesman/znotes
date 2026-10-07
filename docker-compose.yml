@@ -1,0 +1,59 @@
+# Local infrastructure for mynotes: PostgreSQL (source of truth) and OpenSearch (hybrid search).
+# The application itself runs natively (see PLAN.md §7.8 and docs/infrastructure.md).
+# Variables come from .env (MYNOTES_COMPOSE_*, MYNOTES_OPENSEARCH_PASSWORD).
+name: mynotes
+
+services:
+  postgres:
+    image: postgres:18.6
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mynotes
+      POSTGRES_DB: mynotes
+      POSTGRES_PASSWORD: ${MYNOTES_COMPOSE_PG_PASSWORD:?set MYNOTES_COMPOSE_PG_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${MYNOTES_COMPOSE_PG_PORT:-5432}:5432"
+    volumes:
+      # PostgreSQL 18+ images keep data under /var/lib/postgresql/<major>/docker
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mynotes -d mynotes"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  opensearch:
+    image: opensearchproject/opensearch:3.8.0
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      bootstrap.memory_lock: "true"
+      # Absolute free-space watermarks instead of the 85/90/95 % defaults, which block index
+      # creation on large, fairly full disks (e.g. 90 % of 2 TB still leaves ~200 GB free).
+      cluster.routing.allocation.disk.watermark.low: ${MYNOTES_COMPOSE_OS_DISK_LOW:-20gb}
+      cluster.routing.allocation.disk.watermark.high: ${MYNOTES_COMPOSE_OS_DISK_HIGH:-10gb}
+      cluster.routing.allocation.disk.watermark.flood_stage: ${MYNOTES_COMPOSE_OS_DISK_FLOOD:-5gb}
+      OPENSEARCH_JAVA_OPTS: "-Xms${MYNOTES_COMPOSE_OS_HEAP:-2g} -Xmx${MYNOTES_COMPOSE_OS_HEAP:-2g}"
+      # Must be strong: >= 8 chars with upper, lower, digit and special character.
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${MYNOTES_OPENSEARCH_PASSWORD:?set MYNOTES_OPENSEARCH_PASSWORD in .env}
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    ports:
+      - "127.0.0.1:${MYNOTES_COMPOSE_OS_PORT:-9200}:9200"
+    volumes:
+      - osdata:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sk -u \"admin:$$OPENSEARCH_INITIAL_ADMIN_PASSWORD\" https://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+
+volumes:
+  pgdata:
+  osdata:

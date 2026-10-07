@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}History · mynotes{% endblock %}
+{% block head %}<script src="{{ asset('markdown.js') }}" defer></script>
+<script src="{{ asset('history.js') }}" defer></script>{% endblock %}
+{% block content %}
+<h1>History</h1>
+<form id="history-clean" class="history-clean" hx-post="/ui/partials/history/delete"
+      hx-target="#history-list" hx-swap="innerHTML"
+      hx-confirm="Delete these chats? This cannot be undone.">
+  <span class="history-clean-title">Delete chats</span>
+  <label><input type="radio" name="scope" value="older" checked> not used for
+    <input type="number" name="days" min="1" value="30" class="history-days" aria-label="days"> days</label>
+  <label><input type="radio" name="scope" value="all"> all</label>
+  <button type="submit">Delete</button>
+</form>
+<div id="history-list">
+{% include "partials/history_list.html" %}
+</div>
+{% endblock %}

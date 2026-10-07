@@ -1,0 +1,173 @@
+# mynotes configuration example.
+# Copy to mynotes.yaml (repo root) or to the per-OS user config directory
+# (~/.config/mynotes/mynotes.yaml, ~/Library/Application Support/mynotes/,
+# %LOCALAPPDATA%\mynotes\mynotes\), or point MYNOTES_CONFIG at it.
+# Secrets never live here: set MYNOTES_* variables in .env instead
+# (see .env.example); they override the values in this file.
+
+workspace: default
+
+roots:
+  - name: ideas
+    path: ~/Documents/ideas      # on Windows e.g. C:\Users\me\Documents\ideas
+    watch: true                  # overrides scan.watch.enabled for this root
+    watch_backend: auto          # overrides scan.watch.backend
+    case_sensitive: auto         # probed at root registration
+  - name: shared
+    path: /mnt/nas/ideas         # network share -> auto picks polling
+    watch: true
+    hash_always: true
+
+scan:
+  schedule:
+    mode: interval               # interval | cron | manual
+    interval_minutes: 15
+    cron: "*/30 8-20 * * 1-5"    # used when mode=cron
+    full_scan_cron: "0 3 * * *"  # nightly full verification; null to disable
+    run_on_start: true
+  settle_seconds: 10
+  delete_grace_seconds: 60       # wait for the "add" half of a rename before tombstoning
+  mtime_tolerance_ms: 2000       # FAT/exFAT and network shares
+  hash_always: false             # skip the mtime fast path (unreliable filesystems)
+  watch:
+    enabled: false               # global default; per-root override above
+    backend: auto                # auto | native | polling
+    debounce_ms: 1600
+    poll_delay_ms: 2000          # polling backend only
+    max_batch_paths: 500         # above this, scan the whole root instead
+  ignore: [".git/", "node_modules/", "~$*", ".~lock*", "*.tmp", "*.crdownload", "*.partial",
+           ".DS_Store", "._*", "Thumbs.db", "desktop.ini"]
+  skip_cloud_placeholders: true  # *.icloud, OneDrive online-only, zero-byte stubs
+
+formats: [md, txt, pdf, docx, pptx, xlsx, html, epub]   # .doc/.ppt out of scope
+
+extract:
+  pdf_ocr: false
+  office_backend: markitdown     # or docling
+
+chunking:
+  target_tokens: 350
+  max_tokens: 512
+  overlap_tokens: 80
+
+text_matching:
+  folding: asciifolding          # or icu (if analysis-icu is available)
+  stem_languages: [pt, en]
+
+tags:
+  folder_rules: []               # e.g. [{pattern: "projects/*", tags: [project]}]
+  folder_segments_as_tags: true
+  ignore_segments: ["misc", "tmp"]
+  llm_autotag: true
+  llm_auto_accept: 0.85
+
+versions:
+  max_per_document: 5            # null = unlimited
+  max_age_days: null             # null = no age limit (latest version always kept)
+  min_interval_hours: 24
+  index_old_versions: false      # true = retained snapshots searchable for history questions
+  auto_threshold: 0.80
+  propose_threshold: 0.55
+  archive_folders: [archive, old, versions, arquivo]
+
+retention:
+  deleted_days: 30               # purge deleted documents/files (tombstones) after this
+  jobs_done_days: 14             # prune done/dead jobs
+  outbox_processed_days: 7       # prune processed index_outbox rows
+  cache_orphan_days: 30          # embedding/extraction cache rows unused for this long
+
+models:
+  embedding:
+    # Required, no defaults: set here or with MYNOTES_EMBEDDING_* in .env (examples there).
+    base_url: null               # e.g. https://api.openai.com/v1 or http://localhost:11434/v1
+    model: null                  # e.g. text-embedding-3-small (1536) or bge-m3 (1024)
+    dim: null                    # the model's output dimension
+    query_template: "{text}"     # or the model card's format, e.g. "Instruct: {task}\nQuery: {text}"
+    passage_prefix: ""                                  # documents get no prefix
+    tasks:
+      retrieval: "Given a question, retrieve passages that answer the question"
+    normalize: auto              # L2-normalize client-side if the server doesn't
+    batch: 8
+    limits:
+      concurrency: 8
+      max_requests_per_minute: null
+      timeout_s: 60
+  reranker:
+    provider: cohere
+    url: null                    # optional (Cohere-style /v1/rerank); null = no reranking
+    model: null                  # e.g. BAAI/bge-reranker-v2-m3 served by vLLM
+    top_n: 0                     # 0 = keep all, reorder only
+    max_documents_per_request: 40
+    limits:
+      concurrency: 8
+      max_requests_per_minute: null
+      timeout_s: 30
+  llm:
+    base_url: null               # required, e.g. https://api.openai.com/v1
+    model: null                  # required, e.g. gpt-4o-mini or qwen3:8b (Ollama)
+    temperature: 0.0
+    max_tokens: 32000
+    context_window: 64000
+    thinking_model: false        # true only for Qwen3-style thinking models on vLLM (asks for thinking off)
+    limits:
+      interactive_concurrency: 2
+      background_concurrency: 8
+      max_total_concurrency: null   # e.g. 8 to make background yield to interactive
+      max_requests_per_minute: null # no cap by default
+      background_window: null       # e.g. "20:00-07:00" to confine background LLM work
+      timeout_s: 120
+  extract_llm: null              # null = same as models.llm
+  retry:
+    max_attempts: 4
+    backoff_base_s: 2
+    backoff_max_s: 60
+    honor_retry_after: true
+
+graph:
+  lexical_mentions: true        # link known entities named verbatim in a note that the extractor missed (docs/eval/multihop.md)
+  lexical_min_length: 4         # shortest name linked this way
+  lexical_max_mentions: 50      # entities with more extractor mentions are hubs and are never linked lexically
+  lexical_max_chunk_share: 0.02 # a name found in more than this share of all chunks (at least 20) is a generic word
+  lexical_max_ratio: 8          # ... or in more than this many times the chunks the extractor found it in
+  lexical_per_chunk: 8          # at most this many lexical mentions per chunk
+  lexical_types: [Technology, Project, Person, Organization]
+
+retrieval:
+  fusion:
+    technique: rrf
+    rank_constant: 20            # sweep winner on golden sets v0 and v1 (best pre-rerank MRR/doc_hit@5)
+    hybrid_weights: [0.7, 0.3]   # [knn, bm25]; must sum to 1; task 32 sweep winner
+    source_weights: {hybrid: 1.0, graph: 0.6, version: 0.8}   # client-side RRF
+  min_rerank_score: 0.0          # "not found" gate off: the LLM declines itself (golden set v1, 2026-09-28)
+  candidates: 50
+  rerank_top: 40
+  max_docs: 4
+  extra_docs_min_ratio: 1.0      # score-gap rule: admit up to extra_docs_max more documents whose best rerank score is >= this x the top score (1.0 = off)
+  extra_docs_max: 2
+  max_chunks: 10
+  graph_expansion: auto         # auto = only for chain-shaped questions ("the plugin that note X uses"); true/false = always/never (docs/eval/multihop.md)
+  graph_hops: 1
+  graph_method: one_hop         # or "ppr" (Personalized PageRank, pair with graph_hops: 2)
+  graph_freshness: false        # decay graph edge weights by the age of their latest evidence
+  graph_freshness_half_life_days: 365
+  graph_lexical_mentions: true  # expansion also follows lexical mentions (graph.lexical_mentions), weighted by their confidence; false = extractor mentions only
+  title_lock: true              # a quoted note title ("na nota "Plano Alfa"") puts that note first
+  date_lock: true               # a written date ("na reunião de 2026-01-12") puts that day's notes first
+  change_questions: true        # "em que reunião X passou a Y?": earliest note stating Y, with the week before
+  followup_turns: 3             # chat follow-ups see the last N turns (rewritten for search, given to the answer); 0 = off
+  recency_boost: true           # mildly favour recent documents in the final ranking (docs/eval/freshness.md)
+  recency_half_life_days: 365   # a document this old gets the midpoint between 1.0 and the floor
+  recency_min_multiplier: 0.8   # floor: a very old document keeps 80% of its score
+  context_tokens: 3500
+  query_translation: false       # PT<->EN translation of the query for the BM25 leg
+
+# Secrets (postgres dsn, OpenSearch password) come from .env; see .env.example.
+opensearch:
+  url: https://localhost:9200
+  user: null                     # e.g. admin for the docker compose stack
+  verify_certs: false
+  chunks_alias: mynotes_chunks
+  entities_alias: mynotes_entities
+
+auth:
+  mode: none                     # none | oidc

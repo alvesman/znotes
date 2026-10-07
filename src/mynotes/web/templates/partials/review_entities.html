@@ -1,0 +1,29 @@
+<div id="review-entities">
+  <ul class="review-rows">
+    {% for row in rows %}
+    <li class="review-row">
+      <div class="review-docs">
+        <div class="review-doc">
+          <span class="review-role">{{ "keep" if row.pair.a_id == row.keep_id else "merge" }}</span>
+          <a href="/ui/graph?entity={{ row.pair.a_name|urlencode }}">{{ row.pair.a_name }}</a>
+          <span class="muted">{{ row.pair.a_type }} — created {{ row.pair.a_created_at|day }}</span>
+        </div>
+        <div class="review-doc">
+          <span class="review-role">{{ "keep" if row.pair.b_id == row.keep_id else "merge" }}</span>
+          <a href="/ui/graph?entity={{ row.pair.b_name|urlencode }}">{{ row.pair.b_name }}</a>
+          <span class="muted">{{ row.pair.b_type }} — created {{ row.pair.b_created_at|day }}</span>
+        </div>
+      </div>
+      <p class="review-evidence">name similarity {{ "%.2f"|format(row.pair.similarity) }}</p>
+      <div class="review-actions">
+        <button type="button" hx-post="/ui/reviews/entities/{{ row.keep_id }}/{{ row.drop_id }}/merge"
+                hx-target="#review-entities" hx-swap="outerHTML">Merge (keep the older)</button>
+        <button type="button" hx-post="/ui/reviews/entities/{{ row.pair.a_id }}/{{ row.pair.b_id }}/distinct"
+                hx-target="#review-entities" hx-swap="outerHTML">Keep separate</button>
+      </div>
+    </li>
+    {% else %}
+    <li class="empty">No entity merge candidates.</li>
+    {% endfor %}
+  </ul>
+</div>

@@ -1,0 +1,3 @@
+Primeiro parágrafo do ficheiro de texto simples com algumas frases.
+
+Segundo parágrafo, também em texto simples, para testar a divisão.

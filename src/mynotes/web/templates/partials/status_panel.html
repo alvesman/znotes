@@ -1,0 +1,138 @@
+<div id="status-panel" hx-get="/ui/partials/status"
+     hx-trigger="every 30s, mynotes:status-changed from:body" hx-swap="outerHTML">
+  <section class="status-section">
+    <h2>Roots</h2>
+    {% set watchers = data.get("watchers", []) %}
+    {% set last_scans = data.get("last_scans", []) %}
+    {% if data.get("roots") %}
+    <table class="status-table">
+      <thead><tr><th>Root</th><th>Path</th><th>Watcher</th><th>Last scan</th></tr></thead>
+      <tbody>
+        {% for root in data.get("roots") %}
+        {% set watch = (watchers | selectattr("root", "equalto", root.name) | list | first) %}
+        {% set scan = (last_scans | selectattr("root", "equalto", root.name) | list | first) %}
+        <tr>
+          <td>{{ root.name }}</td>
+          <td class="cite-path">{{ root.path }}</td>
+          <td>
+            {%- if watch %}{{ watch.state }} ({{ watch.backend }}){% if watch.stale %} <span class="badge">stale</span>{% endif %}
+            {%- else %}<span class="muted">no state</span>{% endif %}
+          </td>
+          <td>
+            {%- if scan %}{{ scan.started_at|day }} · {{ scan.kind }}/{{ scan.status }}
+              {%- if scan.error %} <span class="problem">{{ scan.error }}</span>{% endif %}
+              {%- if scan.counts %} · {% for key, value in scan.counts.items() %}{{ key }}={{ value }}{% if not loop.last %} {% endif %}{% endfor %}{% endif %}
+            {%- else %}<span class="muted">never</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty">No source roots configured.</p>
+    {% endif %}
+  </section>
+
+  <section class="status-section">
+    <h2>Queue and KG backlog</h2>
+    {% set postgres = data.get("postgres", {}) %}
+    {% if postgres.get("error") %}
+    <p class="problem">{{ postgres.get("error") }}</p>
+    {% else %}
+    {% set jobs = postgres.get("jobs", {}) %}
+    <p>
+      queued {{ jobs.get("queued", 0) }} · running {{ jobs.get("running", 0) }} · failed {{ jobs.get("failed", 0) }}
+      · outbox {{ postgres.get("outbox_unprocessed", 0) }}
+    </p>
+    {% set by_type = data.get("queue_by_type", {}) %}
+    {% if by_type %}
+    <p class="muted">queued by type:
+      {%- for job_type, count in by_type.items() %} {{ job_type }}={{ count }}{% if not loop.last %},{% endif %}{% endfor %}
+    </p>
+    {% endif %}
+    {% set backlog = data.get("kg_backlog", {}) %}
+    {% if backlog.get("error") %}
+    <p class="problem">KG backlog: {{ backlog.get("error") }}</p>
+    {% else %}
+    <p>KG backlog: {{ backlog.get("groups_pending", "?") }} pending group(s)
+      ({{ backlog.get("groups_cached", "?") }}/{{ backlog.get("groups_total", "?") }} cached),
+      {{ backlog.get("queued_kg_extract_jobs", 0) }} queued job(s),
+      ETA {{ backlog.get("eta_seconds")|duration }}</p>
+    {% endif %}
+    {% endif %}
+  </section>
+
+  <section class="status-section">
+    <h2>Index</h2>
+    {% set opensearch = data.get("opensearch", {}) %}
+    {% for alias, info in opensearch.get("aliases", {}).items() %}
+    <p>
+      {{ alias }} →
+      {%- if info is mapping %} {{ info.get("physical", "?") }} ({{ info.get("docs", 0) }} docs)
+      {%- else %} {{ info }}{% endif %}
+    </p>
+    {% else %}
+    <p class="empty">No alias information.</p>
+    {% endfor %}
+    {% set problems = opensearch.get("problems", []) %}
+    {% if problems %}
+    <ul class="problem-list">
+      {% for problem in problems %}<li class="problem">{{ problem }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    {% set drift = data.get("drift") %}
+    {% if drift %}
+    <p class="muted">last drift report {{ drift.saved_at|day if drift.saved_at else "(undated)" }}:
+      expected/indexed {{ drift.expected }}/{{ drift.indexed }},
+      missing {{ drift.missing }} · extra {{ drift.extra }} · stale {{ drift.stale }}</p>
+    {% else %}
+    <p class="muted">no drift report yet (run <code>mynotes index reconcile</code>)</p>
+    {% endif %}
+  </section>
+
+  <section class="status-section">
+    <h2>Model endpoints</h2>
+    <table class="status-table">
+      <thead><tr><th>Process</th><th>Endpoint</th><th>State</th><th>Calls</th><th>p50 ms</th><th>p95 ms</th><th>Errors</th><th>Last error</th></tr></thead>
+      <tbody>
+        {% for snapshot in data.get("endpoints", []) %}
+        {% if snapshot.get("error") %}
+        <tr><td colspan="8" class="problem">{{ snapshot.get("error") }}</td></tr>
+        {% else %}
+        <tr>
+          <td>{{ snapshot.get("process") or "—" }}{% if snapshot.get("age_s") %} <span class="muted">({% if snapshot.get("age_s") >= 90 %}{{ (snapshot.get("age_s") / 60)|round|int }} min{% else %}{{ snapshot.get("age_s")|round|int }} s{% endif %} ago)</span>{% endif %}</td>
+          <td>{{ snapshot.get("name") }}</td>
+          <td>{{ snapshot.get("state") }}</td>
+          <td>{{ snapshot.get("calls") }}</td>
+          <td>{{ snapshot.get("p50_ms") if snapshot.get("p50_ms") is not none else "—" }}</td>
+          <td>{{ snapshot.get("p95_ms") if snapshot.get("p95_ms") is not none else "—" }}</td>
+          <td>{{ "%.1f"|format((snapshot.get("error_rate") or 0) * 100) }}%</td>
+          <td class="cite-path">{{ snapshot.get("last_error") or "—" }}</td>
+        </tr>
+        {% endif %}
+        {% else %}
+        <tr><td colspan="8" class="empty">no endpoint used yet</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="status-section">
+    <h2>Unsupported files</h2>
+    {% set unsupported = data.get("unsupported", {}) %}
+    {% if unsupported.get("error") %}
+    <p class="problem">{{ unsupported.get("error") }}</p>
+    {% else %}
+    <p>{{ unsupported.get("count", 0) }} unsupported file(s)</p>
+    {% if unsupported.get("examples") %}
+    <ul class="example-list">
+      {% for example in unsupported.get("examples") %}<li class="cite-path">{{ example }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    {% endif %}
+    {% set placeholders = postgres.get("files_by_status", {}).get("placeholder", 0) %}
+    {% if placeholders %}
+    <p>{{ placeholders }} cloud placeholder file(s) are skipped by scans.</p>
+    {% endif %}
+  </section>
+</div>

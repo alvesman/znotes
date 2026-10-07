@@ -1,0 +1,24 @@
+{% from "partials/citation.html" import cite %}
+{% macro hit_list(items) %}
+<ol class="hits">
+  {% for item in items %}
+  <li class="hit">
+    <div class="hit-snippet md">{{ item.snippet }}</div>
+    {% if item.section %}<p class="hit-section">{{ item.section }}</p>{% endif %}
+    {{ cite(item, can_open_files) }}
+    {% if item.tags %}<p class="hit-tags">{{ item.tags|join(", ") }}</p>{% endif %}
+  </li>
+  {% endfor %}
+</ol>
+{% endmacro %}
+{% if hits %}
+{{ hit_list(hits) }}
+{% if weak_hits %}
+<details class="weak-hits">
+  <summary>Show {{ weak_hits|length }} weaker result{{ "s" if weak_hits|length != 1 }}</summary>
+  {{ hit_list(weak_hits) }}
+</details>
+{% endif %}
+{% else %}
+<p class="empty">No results.</p>
+{% endif %}

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>MYNOTES_CONFIG</key>
+		<string>/home/test/mynotes.yaml</string>
+	</dict>
+	<key>KeepAlive</key>
+	<true/>
+	<key>Label</key>
+	<string>com.mynotes.worker</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/home/test/.local/bin/uv</string>
+		<string>run</string>
+		<string>--directory</string>
+		<string>/home/test/project</string>
+		<string>mynotes</string>
+		<string>worker</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>/home/test/Library/Logs/mynotes/worker.log</string>
+	<key>StandardOutPath</key>
+	<string>/home/test/Library/Logs/mynotes/worker.log</string>
+	<key>WorkingDirectory</key>
+	<string>/home/test/project</string>
+</dict>
+</plist>

@@ -1,0 +1,36 @@
+<div id="review-versions" hx-get="/ui/partials/reviews/versions"
+     hx-trigger="mynotes:versions-changed from:body" hx-swap="outerHTML">
+  <ul class="review-rows">
+    {% for row in rows %}
+    <li class="review-row">
+      <div class="review-docs">
+        <div class="review-doc">
+          <span class="review-role">newer</span>
+          <a href="/ui/documents/{{ row.relation.newer.document_id }}">{{ row.relation.newer.title or row.relation.newer.path }}</a>
+          <span class="muted">{{ row.relation.newer.path }}{% if row.relation.newer.doc_date %} — {{ row.relation.newer.doc_date|day }}{% endif %}</span>
+          <p class="excerpt">{{ row.newer_preview }}</p>
+        </div>
+        <div class="review-doc">
+          <span class="review-role">older</span>
+          <a href="/ui/documents/{{ row.relation.older.document_id }}">{{ row.relation.older.title or row.relation.older.path }}</a>
+          <span class="muted">{{ row.relation.older.path }}{% if row.relation.older.doc_date %} — {{ row.relation.older.doc_date|day }}{% endif %}</span>
+          <p class="excerpt">{{ row.older_preview }}</p>
+        </div>
+      </div>
+      <p class="review-evidence">
+        {{ row.relation.method }} · confidence {{ "%.2f"|format(row.relation.confidence) }}
+        {%- for key in ("jaccard", "cosine", "order_reason") %}
+        {%- if key in row.relation.evidence %} · {{ key }}: {{ row.relation.evidence[key] }}{% endif %}
+        {%- endfor %}
+      </p>
+      <div class="review-actions">
+        <button type="button" hx-post="/v1/versions/{{ row.relation.id }}/confirm" hx-swap="none">Confirm</button>
+        <button type="button" hx-post="/v1/versions/{{ row.relation.id }}/reject" hx-swap="none">Reject</button>
+        <button type="button" hx-post="/v1/versions/{{ row.relation.id }}/swap" hx-swap="none">Swap</button>
+      </div>
+    </li>
+    {% else %}
+    <li class="empty">No proposed version relations.</li>
+    {% endfor %}
+  </ul>
+</div>

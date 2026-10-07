@@ -1,0 +1,2 @@
+# Your own settings (copied from mynotes.example.yaml); .env is ignored by the root .gitignore.
+mynotes.yaml

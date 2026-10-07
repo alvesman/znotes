@@ -1,0 +1,35 @@
+{% macro sec_anchor(section) -%}
+{%- if section %}#sec-{{ section|slug }}{%- endif -%}
+{%- endmacro %}
+
+{% macro cite(item, can_open_files) %}
+<span class="citation">
+  {%- if item.n %}<span class="cite-n">[{{ item.n }}]</span>{% endif %}
+  <span class="cite-title">{{ item.title or item.path }}</span>
+  <span class="cite-sep"> — </span><span class="cite-path">{{ item.path }}</span>
+  {%- if item.page %}<span class="cite-loc"> (p. {{ item.page }})</span>
+  {%- elif item.slide %}<span class="cite-loc"> (slide {{ item.slide }})</span>
+  {%- endif %}
+  {%- if item.doc_date %}<span class="cite-date"> — {{ item.doc_date }}</span>{% endif %}
+  {%- if not item.is_current %} <span class="badge">historical</span>{% endif %}
+  <span class="cite-actions">
+    {%- if item.format == "pdf" %}
+    <a href="/v1/files/{{ item.document_id }}/raw{% if item.page %}#page={{ item.page }}{% endif %}"
+       target="_blank" rel="noopener">Open</a>
+    {%- elif item.format in ("md", "txt") %}
+    <a href="/ui/documents/{{ item.document_id }}{{ sec_anchor(item.section) }}"
+       target="_blank" rel="noopener">View note</a>
+    {%- elif item.format == "html" %}
+    <a href="/v1/files/{{ item.document_id }}/raw" target="_blank" rel="noopener">Open</a>
+    {%- elif item.format in ("docx", "pptx", "xlsx", "epub") %}
+    {%- if can_open_files %}
+    <button type="button" class="open-in-app" hx-post="/v1/files/{{ item.document_id }}/open"
+            hx-swap="none">Open in app</button>
+    {%- endif %}
+    <a href="/v1/files/{{ item.document_id }}/raw">Download</a>
+    <a href="/ui/documents/{{ item.document_id }}{{ sec_anchor(item.section) }}"
+       target="_blank" rel="noopener">View text</a>
+    {%- endif %}
+  </span>
+</span>
+{% endmacro %}

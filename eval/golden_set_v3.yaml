@@ -1,0 +1,1058 @@
+# Golden set v3 - synthetic multi-hop corpus
+# (scripts/eval/generate_multihop_corpus.py).
+# GENERATED, not human-reviewed. Answers are correct by construction; review the
+# wording. Regenerate with the same --seed to reproduce. Never edit between two
+# runs you want to compare.
+meta:
+  created: '2026-10-04'
+  corpus_note: 'synthetic multi-hop corpus: 30 tools, 40 two-hop and 10 three-hop bridges, 10 controls,
+    40 distractors, seed 3'
+  review: 'GENERATED (not human-reviewed): answers are correct by construction from the synthetic corpus
+    manifest; review the wording, not the answers.'
+  counts:
+    multi-hop: 50
+    control: 10
+questions:
+- id: h001
+  question: Quem mantem o plugin usado para a vista de nuvem de etiquetas na nota "Vista de nuvem de etiquetas
+    - Zezere"?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:maintainer
+  - style:title
+  - family:m01
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/pagewright.md
+  bridge_docs:
+  - projects/zezere/vista-de-nuvem-de-etiquetas.md
+  reference_answer: Andre Rocha
+- id: h002
+  question: What is the licence of the tool that Project Tua uses for the weekly note review?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:license
+  - style:descriptive
+  - family:m02
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/snipster.md
+  bridge_docs:
+  - projects/tua/weekly-review-routine.md
+  reference_answer: GPL-3.0
+- id: h003
+  question: Em que linguagem esta escrita o plugin usado para o diario de reunioes na nota "Diario de
+    reunioes - Alva"?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:language
+  - style:title
+  - family:m03
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/codexa.md
+  bridge_docs:
+  - projects/alva/diario-de-reunioes.md
+  reference_answer: Go
+- id: h004
+  question: What is the configuration file of the tool that Project Ancora uses for report export called?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:config_file
+  - style:descriptive
+  - family:m04
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/draftline.md
+  bridge_docs:
+  - projects/ancora/report-export.md
+  reference_answer: draftline.yaml
+- id: h005
+  question: Qual e o porto por omissao de o plugin usado para o quadro de tarefas na nota "Quadro de tarefas
+    - Zambujal"?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:port
+  - style:title
+  - family:m05
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/refstack.md
+  bridge_docs:
+  - projects/zambujal/quadro-de-tarefas.md
+  reference_answer: '4452'
+- id: h006
+  question: Who maintains the tool that Project Odelouca uses for quick idea capture?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:maintainer
+  - style:descriptive
+  - family:m06
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/quillboard.md
+  bridge_docs:
+  - projects/odelouca/idea-capture.md
+  reference_answer: Patricia Serra
+- id: h007
+  question: Qual e a licenca de o plugin usado para o indice de decisoes na nota "Indice de decisoes -
+    Raia"?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:license
+  - style:title
+  - family:m07
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/marginalia.md
+  bridge_docs:
+  - projects/raia/indice-de-decisoes.md
+  reference_answer: BSD-3-Clause
+- id: h008
+  question: Which language is the tool that Project Guadiana uses for the project timeline written in?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:language
+  - style:descriptive
+  - family:m08
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/inkwell.md
+  bridge_docs:
+  - projects/guadiana/project-timeline.md
+  reference_answer: Elixir
+- id: h009
+  question: Como se chama o ficheiro de configuracao de o plugin usado para as citacoes bibliograficas
+    na nota "Gestao de citacoes - Monchique"?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:config_file
+  - style:title
+  - family:m09
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/timeglass.md
+  bridge_docs:
+  - projects/monchique/gestao-de-citacoes.md
+  reference_answer: timeglass.yaml
+- id: h010
+  question: What is the default port of the tool that Project Coa uses for concept maps?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:port
+  - style:descriptive
+  - family:m10
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/kanbanist.md
+  bridge_docs:
+  - projects/coa/concept-maps.md
+  reference_answer: '4517'
+- id: h011
+  question: Quem mantem o plugin usado para a publicacao de apresentacoes na nota "Publicacao de apresentacoes
+    - Vouga"?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:maintainer
+  - style:title
+  - family:m11
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/stanza.md
+  bridge_docs:
+  - projects/vouga/publicacao-de-apresentacoes.md
+  reference_answer: Tiago Nunes
+- id: h012
+  question: What is the licence of the tool that Project Cintra uses for form handling?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:license
+  - style:descriptive
+  - family:m12
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/memoranda.md
+  bridge_docs:
+  - projects/cintra/form-handling.md
+  reference_answer: GPL-3.0
+- id: h013
+  question: Em que linguagem esta escrita o plugin usado para a vista de nuvem de etiquetas na nota "Vista
+    de nuvem de etiquetas - Orion"?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:language
+  - style:title
+  - family:m13
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/backlinker.md
+  bridge_docs:
+  - projects/orion/vista-de-nuvem-de-etiquetas.md
+  reference_answer: Dart
+- id: h014
+  question: What is the configuration file of the tool that Project Tejo uses for the weekly note review
+    called?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:config_file
+  - style:descriptive
+  - family:m14
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/linkforge.md
+  bridge_docs:
+  - projects/tejo/weekly-review-routine.md
+  reference_answer: linkforge.yaml
+- id: h015
+  question: Qual e o porto por omissao de o plugin usado para o diario de reunioes na nota "Diario de
+    reunioes - Xarrama"?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:port
+  - style:title
+  - family:m15
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/clipmark.md
+  bridge_docs:
+  - projects/xarrama/diario-de-reunioes.md
+  reference_answer: '4633'
+- id: h016
+  question: Who maintains the tool that Project Caia uses for report export?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:maintainer
+  - style:descriptive
+  - family:m16
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/scribekit.md
+  bridge_docs:
+  - projects/caia/report-export.md
+  reference_answer: Hugo Martins
+- id: h017
+  question: Qual e a licenca de o plugin usado para o quadro de tarefas na nota "Quadro de tarefas - Vega"?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:license
+  - style:title
+  - family:m17
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/vellum.md
+  bridge_docs:
+  - projects/vega/quadro-de-tarefas.md
+  reference_answer: MPL-2.0
+- id: h018
+  question: Which language is the tool that Project Ceira uses for quick idea capture written in?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:language
+  - style:descriptive
+  - family:m18
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/journalix.md
+  bridge_docs:
+  - projects/ceira/idea-capture.md
+  reference_answer: Elixir
+- id: h019
+  question: Como se chama o ficheiro de configuracao de o plugin usado para o indice de decisoes na nota
+    "Indice de decisoes - Degebe"?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:config_file
+  - style:title
+  - family:m19
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/lattice.md
+  bridge_docs:
+  - projects/degebe/indice-de-decisoes.md
+  reference_answer: lattice.json
+- id: h020
+  question: What is the default port of the tool that Project Paiva uses for the project timeline?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:port
+  - style:descriptive
+  - family:m20
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/mindmapr.md
+  bridge_docs:
+  - projects/paiva/project-timeline.md
+  reference_answer: '4121'
+- id: h021
+  question: Quem mantem o plugin usado para as citacoes bibliograficas na nota "Gestao de citacoes - Dao"?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:maintainer
+  - style:title
+  - family:m21
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/tagloom.md
+  bridge_docs:
+  - projects/dao/gestao-de-citacoes.md
+  reference_answer: Rita Figueiredo
+- id: h022
+  question: What is the licence of the tool that Project Almansor uses for concept maps?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:license
+  - style:descriptive
+  - family:m22
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/annotely.md
+  bridge_docs:
+  - projects/almansor/concept-maps.md
+  reference_answer: Apache-2.0
+- id: h023
+  question: Em que linguagem esta escrita o plugin usado para a publicacao de apresentacoes na nota "Publicacao
+    de apresentacoes - Sorraia"?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:language
+  - style:title
+  - family:m23
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/notegrid.md
+  bridge_docs:
+  - projects/sorraia/publicacao-de-apresentacoes.md
+  reference_answer: Kotlin
+- id: h024
+  question: What is the configuration file of the tool that Project Mira uses for form handling called?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:config_file
+  - style:descriptive
+  - family:m24
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/slidecraft.md
+  bridge_docs:
+  - projects/mira/form-handling.md
+  reference_answer: slidecraft.json
+- id: h025
+  question: Qual e o porto por omissao de o plugin usado para a vista de nuvem de etiquetas na nota "Vista
+    de nuvem de etiquetas - Douro"?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:port
+  - style:title
+  - family:m25
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/cardstock.md
+  bridge_docs:
+  - projects/douro/vista-de-nuvem-de-etiquetas.md
+  reference_answer: '4923'
+- id: h026
+  question: Who maintains the tool that Project Sabor uses for the weekly note review?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:maintainer
+  - style:descriptive
+  - family:m26
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/formulary.md
+  bridge_docs:
+  - projects/sabor/weekly-review-routine.md
+  reference_answer: Jorge Valente
+- id: h027
+  question: Qual e a licenca de o plugin usado para o diario de reunioes na nota "Diario de reunioes -
+    Arade"?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:license
+  - style:title
+  - family:m27
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/tabular.md
+  bridge_docs:
+  - projects/arade/diario-de-reunioes.md
+  reference_answer: ISC
+- id: h028
+  question: Which language is the tool that Project Minho uses for report export written in?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:language
+  - style:descriptive
+  - family:m28
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/glyphbox.md
+  bridge_docs:
+  - projects/minho/report-export.md
+  reference_answer: Python
+- id: h029
+  question: Como se chama o ficheiro de configuracao de o plugin usado para o quadro de tarefas na nota
+    "Quadro de tarefas - Cavado"?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:config_file
+  - style:title
+  - family:m29
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/folios.md
+  bridge_docs:
+  - projects/cavado/quadro-de-tarefas.md
+  reference_answer: folios.json
+- id: h030
+  question: What is the default port of the tool that Project Alvor uses for quick idea capture?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:port
+  - style:descriptive
+  - family:m30
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/outlinely.md
+  bridge_docs:
+  - projects/alvor/idea-capture.md
+  reference_answer: '4330'
+- id: h031
+  question: Quem mantem o plugin usado para o indice de decisoes na nota "Indice de decisoes - Nabao"?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:maintainer
+  - style:title
+  - family:m31
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/pagewright.md
+  bridge_docs:
+  - projects/nabao/indice-de-decisoes.md
+  reference_answer: Andre Rocha
+- id: h032
+  question: What is the licence of the tool that Project Neiva uses for the project timeline?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:license
+  - style:descriptive
+  - family:m32
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/snipster.md
+  bridge_docs:
+  - projects/neiva/project-timeline.md
+  reference_answer: GPL-3.0
+- id: h033
+  question: Em que linguagem esta escrita o plugin usado para as citacoes bibliograficas na nota "Gestao
+    de citacoes - Sado"?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:language
+  - style:title
+  - family:m33
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/codexa.md
+  bridge_docs:
+  - projects/sado/gestao-de-citacoes.md
+  reference_answer: Go
+- id: h034
+  question: What is the configuration file of the tool that Project Leca uses for concept maps called?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:config_file
+  - style:descriptive
+  - family:m34
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/draftline.md
+  bridge_docs:
+  - projects/leca/concept-maps.md
+  reference_answer: draftline.yaml
+- id: h035
+  question: Qual e o porto por omissao de o plugin usado para a publicacao de apresentacoes na nota "Publicacao
+    de apresentacoes - Mondego"?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:port
+  - style:title
+  - family:m35
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/refstack.md
+  bridge_docs:
+  - projects/mondego/publicacao-de-apresentacoes.md
+  reference_answer: '4452'
+- id: h036
+  question: Who maintains the tool that Project Tamega uses for form handling?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:maintainer
+  - style:descriptive
+  - family:m36
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/quillboard.md
+  bridge_docs:
+  - projects/tamega/form-handling.md
+  reference_answer: Patricia Serra
+- id: h037
+  question: Qual e a licenca de o plugin usado para a vista de nuvem de etiquetas na nota "Vista de nuvem
+    de etiquetas - Ave"?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:license
+  - style:title
+  - family:m37
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/marginalia.md
+  bridge_docs:
+  - projects/ave/vista-de-nuvem-de-etiquetas.md
+  reference_answer: BSD-3-Clause
+- id: h038
+  question: Which language is the tool that Project Lima uses for the weekly note review written in?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:language
+  - style:descriptive
+  - family:m38
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/inkwell.md
+  bridge_docs:
+  - projects/lima/weekly-review-routine.md
+  reference_answer: Elixir
+- id: h039
+  question: Como se chama o ficheiro de configuracao de o plugin usado para o diario de reunioes na nota
+    "Diario de reunioes - Seda"?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:config_file
+  - style:title
+  - family:m39
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/timeglass.md
+  bridge_docs:
+  - projects/seda/diario-de-reunioes.md
+  reference_answer: timeglass.yaml
+- id: h040
+  question: What is the default port of the tool that Project Lince uses for report export?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:2
+  - fact:port
+  - style:descriptive
+  - family:m40
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/kanbanist.md
+  bridge_docs:
+  - projects/lince/report-export.md
+  reference_answer: '4517'
+- id: h041
+  question: Quem mantem a ferramenta em que assenta o modulo de exportacao do Projeto Zezere?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:3
+  - fact:maintainer
+  - style:three
+  - family:m41
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/stanza.md
+  bridge_docs:
+  - projects/zezere/quadro-de-tarefas.md
+  - projects/zezere/modulo-de-exportacao.md
+  reference_answer: Tiago Nunes
+- id: h042
+  question: What is the licence of the tool that the notification service of Project Tua is built on?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:3
+  - fact:license
+  - style:three
+  - family:m42
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/memoranda.md
+  bridge_docs:
+  - projects/tua/idea-capture.md
+  - projects/tua/notification-service.md
+  reference_answer: GPL-3.0
+- id: h043
+  question: Em que linguagem esta escrita a ferramenta em que assenta a camada de sincronizacao do Projeto
+    Alva?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:3
+  - fact:language
+  - style:three
+  - family:m43
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/backlinker.md
+  bridge_docs:
+  - projects/alva/indice-de-decisoes.md
+  - projects/alva/camada-de-sincronizacao.md
+  reference_answer: Dart
+- id: h044
+  question: What is the configuration file of the tool that the admin panel of Project Ancora is built
+    on called?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:3
+  - fact:config_file
+  - style:three
+  - family:m44
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/linkforge.md
+  bridge_docs:
+  - projects/ancora/project-timeline.md
+  - projects/ancora/admin-panel.md
+  reference_answer: linkforge.yaml
+- id: h045
+  question: Qual e o porto por omissao de a ferramenta em que assenta o motor de pesquisa interno do Projeto
+    Zambujal?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:3
+  - fact:port
+  - style:three
+  - family:m45
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/clipmark.md
+  bridge_docs:
+  - projects/zambujal/gestao-de-citacoes.md
+  - projects/zambujal/motor-de-pesquisa.md
+  reference_answer: '4633'
+- id: h046
+  question: Who maintains the tool that the export module of Project Odelouca is built on?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:3
+  - fact:maintainer
+  - style:three
+  - family:m46
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/scribekit.md
+  bridge_docs:
+  - projects/odelouca/concept-maps.md
+  - projects/odelouca/export-module.md
+  reference_answer: Hugo Martins
+- id: h047
+  question: Qual e a licenca de a ferramenta em que assenta o servico de notificacoes do Projeto Raia?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:3
+  - fact:license
+  - style:three
+  - family:m47
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/vellum.md
+  bridge_docs:
+  - projects/raia/publicacao-de-apresentacoes.md
+  - projects/raia/servico-de-notificacoes.md
+  reference_answer: MPL-2.0
+- id: h048
+  question: Which language is the tool that the sync layer of Project Guadiana is built on written in?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:3
+  - fact:language
+  - style:three
+  - family:m48
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/journalix.md
+  bridge_docs:
+  - projects/guadiana/form-handling.md
+  - projects/guadiana/sync-layer.md
+  reference_answer: Elixir
+- id: h049
+  question: Como se chama o ficheiro de configuracao de a ferramenta em que assenta o painel de administracao
+    do Projeto Monchique?
+  language: pt
+  category: multi-hop
+  tags:
+  - hops:3
+  - fact:config_file
+  - style:three
+  - family:m49
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/lattice.md
+  bridge_docs:
+  - projects/monchique/vista-de-nuvem-de-etiquetas.md
+  - projects/monchique/painel-de-administracao.md
+  reference_answer: lattice.json
+- id: h050
+  question: What is the default port of the tool that the internal search engine of Project Coa is built
+    on?
+  language: en
+  category: multi-hop
+  tags:
+  - hops:3
+  - fact:port
+  - style:three
+  - family:m50
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/mindmapr.md
+  bridge_docs:
+  - projects/coa/weekly-review-routine.md
+  - projects/coa/search-engine.md
+  reference_answer: '4121'
+- id: h051
+  question: Quem mantem o plugin Pagewright?
+  language: pt
+  category: control
+  tags:
+  - hops:1
+  - fact:maintainer
+  - style:direct
+  - family:c01
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/pagewright.md
+  bridge_docs: []
+  reference_answer: Andre Rocha
+- id: h052
+  question: What is the licence of the Draftline plugin?
+  language: en
+  category: control
+  tags:
+  - hops:1
+  - fact:license
+  - style:direct
+  - family:c02
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/draftline.md
+  bridge_docs: []
+  reference_answer: ISC
+- id: h053
+  question: Em que linguagem esta escrita o plugin Marginalia?
+  language: pt
+  category: control
+  tags:
+  - hops:1
+  - fact:language
+  - style:direct
+  - family:c03
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/marginalia.md
+  bridge_docs: []
+  reference_answer: Go
+- id: h054
+  question: What is the configuration file of the Kanbanist plugin called?
+  language: en
+  category: control
+  tags:
+  - hops:1
+  - fact:config_file
+  - style:direct
+  - family:c04
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/kanbanist.md
+  bridge_docs: []
+  reference_answer: kanbanist.toml
+- id: h055
+  question: Qual e o porto por omissao de o plugin Backlinker?
+  language: pt
+  category: control
+  tags:
+  - hops:1
+  - fact:port
+  - style:direct
+  - family:c05
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/backlinker.md
+  bridge_docs: []
+  reference_answer: '4495'
+- id: h056
+  question: Who maintains the Scribekit plugin?
+  language: en
+  category: control
+  tags:
+  - hops:1
+  - fact:maintainer
+  - style:direct
+  - family:c06
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/scribekit.md
+  bridge_docs: []
+  reference_answer: Hugo Martins
+- id: h057
+  question: Qual e a licenca de o plugin Lattice?
+  language: pt
+  category: control
+  tags:
+  - hops:1
+  - fact:license
+  - style:direct
+  - family:c07
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/lattice.md
+  bridge_docs: []
+  reference_answer: MPL-2.0
+- id: h058
+  question: Which language is the Annotely plugin written in?
+  language: en
+  category: control
+  tags:
+  - hops:1
+  - fact:language
+  - style:direct
+  - family:c08
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/annotely.md
+  bridge_docs: []
+  reference_answer: Elixir
+- id: h059
+  question: Como se chama o ficheiro de configuracao de o plugin Cardstock?
+  language: pt
+  category: control
+  tags:
+  - hops:1
+  - fact:config_file
+  - style:direct
+  - family:c09
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/cardstock.md
+  bridge_docs: []
+  reference_answer: cardstock.json
+- id: h060
+  question: What is the default port of the Glyphbox plugin?
+  language: en
+  category: control
+  tags:
+  - hops:1
+  - fact:port
+  - style:direct
+  - family:c10
+  filters:
+    tags: []
+    folders: []
+  expected_docs:
+  - tools/glyphbox.md
+  bridge_docs: []
+  reference_answer: '4929'

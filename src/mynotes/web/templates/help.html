@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Help · {{ title }} · mynotes{% endblock %}
+{% block content %}
+<h1>Help</h1>
+<nav class="tabs help-tabs" aria-label="Help topics">
+  {% for key, label in tabs %}
+  <a href="/ui/help/{{ key }}"{% if key == current %} aria-current="page"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>
+<article class="doc-content help-content">
+  {{ content_html|safe }}
+</article>
+{% endblock %}

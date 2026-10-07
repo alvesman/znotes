@@ -1,0 +1,37 @@
+{% from "partials/citation.html" import cite %}
+{% if message %}<p class="status">{{ message }}</p>{% endif %}
+{% if conversations %}
+<p class="muted">{{ total }} chat{{ "s" if total != 1 }}{% if total > conversations|length %}; the {{ conversations|length }} most recent are shown{% endif %}.</p>
+<ol class="history-list">
+  {% for chat in conversations %}
+  <li class="history-entry">
+    <details>
+      <summary>
+        <span class="history-question">{{ chat.title }}</span>
+        <span class="history-when muted">
+          {%- if chat.count > 1 %}{{ chat.count }} questions · {{ chat.started }} – {{ chat.last }}{% else %}{{ chat.started }}{% endif -%}
+        </span>
+      </summary>
+      <p class="history-actions"><a href="/ui/chat?conversation={{ chat.key|urlencode }}">Continue this chat</a></p>
+      {% for turn in chat.turns %}
+      <article class="history-turn">
+        {% if chat.count > 1 %}<p class="question">{{ turn.question }} <span class="muted history-turn-when">{{ turn.when }}</span></p>{% endif %}
+        {% if turn.standalone %}<p class="searched muted">Searched as: {{ turn.standalone }}</p>{% endif %}
+        <div class="answer md" data-markdown data-cite-prefix="h{{ turn.id }}-cite-">{{ turn.answer }}</div>
+        {% if not turn.relevant %}<p class="status">No relevant notes were found for this question.</p>{% endif %}
+        {% if turn.citations %}
+        <div class="citations">
+          {% for item in turn.citations %}
+          <div class="citation-row"{% if item.n %} id="h{{ turn.id }}-cite-{{ item.n }}"{% endif %}>{{ cite(item, can_open_files) }}</div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </details>
+  </li>
+  {% endfor %}
+</ol>
+{% else %}
+<p class="empty">No chats yet. Questions asked on the Chat page are kept here.</p>
+{% endif %}

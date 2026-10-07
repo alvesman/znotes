@@ -1,0 +1,65 @@
+{% if panel.error %}
+<p class="empty">{{ panel.error }}</p>
+{% if panel.candidates %}
+<ul class="candidate-list">
+  {% for candidate in panel.candidates %}
+  <li>
+    <a href="/ui/graph?entity={{ candidate.name|urlencode }}">{{ candidate.name }}</a>
+    <span class="muted">{{ candidate.type }}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% elif panel.card %}
+<section class="entity-card">
+  <h2>{{ panel.card.name }} <span class="badge">{{ panel.card.type }}</span>
+    {%- if panel.card.status != "active" %} <span class="badge">{{ panel.card.status }}</span>{% endif %}
+  </h2>
+  {% if panel.card.description %}
+  <p class="entity-summary">{{ panel.card.description }}</p>
+  {% endif %}
+  {% if panel.card.aliases %}
+  <p class="muted">Also known as: {{ panel.card.aliases|join(", ") }}</p>
+  {% endif %}
+  {% if panel.attributes %}
+  <dl class="attributes">
+    {% for attribute in panel.attributes %}
+    <dt>{{ attribute.attribute }}</dt>
+    <dd>{{ attribute.value }}{% if attribute.doc_date %} <span class="muted">({{ attribute.doc_date|day }})</span>{% endif %}</dd>
+    {% endfor %}
+  </dl>
+  {% endif %}
+  {% if panel.card.top_documents %}
+  <p class="muted">Mentioned in:
+    {%- for document in panel.card.top_documents %}
+    <a href="/ui/documents/{{ document.document_id }}">{{ document.title or document.rel_path }}</a>{% if not loop.last %}, {% endif %}
+    {%- endfor %}
+  </p>
+  {% endif %}
+</section>
+<div class="form-row">
+  <label for="graph-hops">Hops</label>
+  <select id="graph-hops">
+    <option value="1" selected>1</option>
+    <option value="2">2</option>
+  </select>
+</div>
+<div id="graph-view" data-entity-id="{{ panel.card.id }}" data-entity-name="{{ panel.card.name }}"></div>
+<div id="graph-edge-info" class="empty" hidden></div>
+<section class="entity-timeline">
+  <h3>Timeline</h3>
+  {% if panel.timeline %}
+  <ul class="timeline">
+    {% for item in panel.timeline %}
+    <li>
+      <span class="timeline-date">{{ item.date|day if item.date else "—" }}</span>
+      <span class="timeline-text">{{ item.text }}</span>
+      {%- if item.kind != "document" and item.status != "active" %} <span class="badge">{{ item.status }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">No dated facts for this entity yet.</p>
+  {% endif %}
+</section>
+{% endif %}

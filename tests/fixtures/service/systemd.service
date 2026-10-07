@@ -1,0 +1,15 @@
+[Unit]
+Description=mynotes worker (scan, index, graph)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/test/project
+ExecStart=/home/test/.local/bin/uv run --directory /home/test/project mynotes worker
+Restart=on-failure
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+Environment=MYNOTES_CONFIG=/home/test/mynotes.yaml
+
+[Install]
+WantedBy=default.target

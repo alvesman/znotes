@@ -1,0 +1,34 @@
+<div id="review-tags" hx-get="/ui/partials/reviews/tags"
+     hx-trigger="mynotes:tags-changed from:body" hx-swap="outerHTML">
+  <ul class="review-rows">
+    {% for entry in proposals %}
+    <li class="review-row">
+      <p class="review-doc-title">
+        <a href="/ui/documents/{{ entry.document_id }}">{{ entry.title or entry.rel_path }}</a>
+        <span class="muted">{{ entry.rel_path }}</span>
+      </p>
+      <ul class="proposal-list">
+        {% for proposal in entry.proposals %}
+        <li class="proposal">
+          <span class="tag-chip">{{ proposal.name }}</span>
+          <span class="muted">confidence {{ "%.2f"|format(proposal.confidence) }}{% if proposal.reason %} — {{ proposal.reason }}{% endif %}</span>
+          <button type="button" class="tag-action"
+                  hx-post="/v1/tags/{{ entry.document_id }}/{{ proposal.name|urlencode }}/accept"
+                  hx-swap="none">Accept</button>
+          <button type="button" class="tag-action"
+                  hx-post="/v1/tags/{{ entry.document_id }}/{{ proposal.name|urlencode }}/reject"
+                  hx-swap="none">Reject</button>
+          <form class="merge-form" hx-post="/v1/tags/merge" hx-ext="json-enc" hx-swap="none">
+            <input type="hidden" name="from" value="{{ proposal.name }}">
+            <input type="text" name="into" placeholder="merge into tag…">
+            <button type="submit">Merge into…</button>
+          </form>
+        </li>
+        {% endfor %}
+      </ul>
+    </li>
+    {% else %}
+    <li class="empty">No proposed tags.</li>
+    {% endfor %}
+  </ul>
+</div>

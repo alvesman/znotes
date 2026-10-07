@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}{{ view.title or view.path }} · mynotes{% endblock %}
+{% block content %}
+<header class="doc-header">
+  <h1>{{ view.title or view.path }}</h1>
+  <p class="doc-meta">
+    <span class="cite-path">{{ view.path }}</span>
+    <span class="badge">{{ view.status }}</span>
+    {%- if view.doc_date %} <span>{{ view.doc_date|day }}</span>{% endif %}
+    {%- if view.language %} <span>{{ view.language }}</span>{% endif %}
+    {%- if view.latest_version_no %} <span class="muted">v{{ view.latest_version_no }}</span>{% endif %}
+    <span class="cite-actions">
+      {%- if view.format == "pdf" %}
+      <a href="/v1/files/{{ view.document_id }}/raw" target="_blank" rel="noopener">Open</a>
+      {%- elif view.format == "html" %}
+      <a href="/v1/files/{{ view.document_id }}/raw" target="_blank" rel="noopener">Open</a>
+      {%- elif view.format in ("md", "txt") %}
+      <a href="/v1/files/{{ view.document_id }}/raw">Raw</a>
+      {%- elif view.format in ("docx", "pptx", "xlsx", "epub") %}
+      {%- if can_open_files %}
+      <button type="button" hx-post="/v1/files/{{ view.document_id }}/open" hx-swap="none">Open in app</button>
+      {%- endif %}
+      <a href="/v1/files/{{ view.document_id }}/raw">Download</a>
+      {%- endif %}
+    </span>
+  </p>
+  <div id="doc-tags" hx-get="/ui/partials/documents/{{ view.document_id }}/tags"
+       hx-trigger="mynotes:tags-changed from:body" hx-swap="innerHTML">
+    {% include "partials/document_tags.html" %}
+  </div>
+</header>
+{% if newer or older %}
+<section class="doc-chain">
+  <h2>Version chain</h2>
+  {% if newer %}
+  <p class="chain-row"><span class="chain-role">Newer:</span>
+    {%- for document in newer %}
+    <a href="/ui/documents/{{ document.document_id }}">{{ document.title or document.path }}</a>
+    <span class="muted">{{ document.path }}{% if document.doc_date %} — {{ document.doc_date|day }}{% endif %}</span>{% if not loop.last %}; {% endif %}
+    {%- endfor %}
+  </p>
+  {% endif %}
+  {% if older %}
+  <p class="chain-row"><span class="chain-role">Older:</span>
+    {%- for document in older %}
+    <a href="/ui/documents/{{ document.document_id }}">{{ document.title or document.path }}</a>
+    <span class="muted">{{ document.path }}{% if document.doc_date %} — {{ document.doc_date|day }}{% endif %}</span>{% if not loop.last %}; {% endif %}
+    {%- endfor %}
+  </p>
+  {% endif %}
+</section>
+{% endif %}
+{% if history %}
+<section class="doc-history">
+  <h2>Snapshots</h2>
+  <ul class="history-list">
+    {% for version in history %}
+    <li>
+      <span class="history-version">v{{ version.version_no }}</span>
+      {{ version.doc_date|day if version.doc_date else version.created_at|day }}
+      {%- if version.is_latest %} <span class="badge">latest</span>{% endif %}
+      {%- if version.changed_sections %} <span class="muted">changed: {{ version.changed_sections|join(", ") }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+<section class="doc-content">
+  {{ content_html|safe }}
+</section>
+{% endblock %}

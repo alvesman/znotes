@@ -1,0 +1,10 @@
+# Build the mynotes image from this source checkout instead of pulling the published one:
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+services:
+  init: &build
+    build:
+      context: ../..
+      dockerfile: deployment/full-stack/Dockerfile
+    image: mynotes:local
+  worker: *build
+  web: *build

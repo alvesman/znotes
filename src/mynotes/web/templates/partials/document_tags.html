@@ -1,0 +1,24 @@
+{% if tags %}
+{% for source, chips in tags|groupby("source") %}
+<div class="tag-group">
+  <span class="tag-source">{{ source }}</span>
+  {% for chip in chips %}
+  <span class="tag-chip">
+    {{ chip.name }}
+    {%- if chip.source == "llm" and chip.status == "proposed" %}
+    <button type="button" class="tag-action"
+            hx-post="/v1/tags/{{ view.document_id }}/{{ chip.name|urlencode }}/accept"
+            hx-swap="none">Accept</button>
+    <button type="button" class="tag-action"
+            hx-post="/v1/tags/{{ view.document_id }}/{{ chip.name|urlencode }}/reject"
+            hx-swap="none">Reject</button>
+    {%- elif chip.status == "proposed" %}
+    <span class="muted">(proposed)</span>
+    {%- endif %}
+  </span>
+  {% endfor %}
+</div>
+{% endfor %}
+{% else %}
+<p class="empty">No tags.</p>
+{% endif %}

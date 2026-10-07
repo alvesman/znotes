@@ -1,0 +1,14 @@
+# Build context is the repository root: send only what the image needs.
+*
+!pyproject.toml
+!uv.lock
+!README.md
+!LICENSE
+!THIRD_PARTY_NOTICES.md
+!alembic/
+# Only the manuals the Help page shows; the rest of docs/ stays out of the image.
+!docs/user-manual.md
+!docs/web-interface-manual.md
+!docs/mcp.md
+!src/
+**/__pycache__

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Search · mynotes{% endblock %}
+{% block head %}<script src="{{ asset('prefs.js') }}" defer></script>
+<script src="{{ asset('markdown.js') }}" defer></script>
+<script src="{{ asset('search.js') }}" defer></script>{% endblock %}
+{% block content %}
+<h1>Search</h1>
+<form id="search-form" hx-post="/ui/partials/search" hx-target="#results"
+      hx-indicator="#search-indicator">
+  <div class="form-row">
+    <input type="search" name="query" placeholder="Search… (inline #tag and in:folder work too)">
+    <button type="submit">Search</button>
+    <span id="search-indicator" class="htmx-indicator">Searching…</span>
+  </div>
+  <div class="form-row">
+    <label>Folder <input type="text" name="folder" placeholder="folder prefix"></label>
+    <label>Since <input type="month" name="since"></label>
+  </div>
+  <fieldset>
+    <legend>Formats</legend>
+    {% for fmt in formats %}
+    <label><input type="checkbox" name="formats" value="{{ fmt }}"> {{ fmt }}</label>
+    {% endfor %}
+  </fieldset>
+  <div class="form-row">
+    <label><input type="checkbox" name="history" value="1" data-persist="search.history"> include notes history</label>
+    <label><input type="checkbox" name="rerank" value="1" checked data-persist="search.rerank"> rerank</label>
+  </div>
+  <fieldset class="tag-filter">
+    <legend>Tags <span id="tag-selected-count" class="muted"></span></legend>
+    {% if tags %}
+    <div class="form-row">
+      <input type="search" id="tag-filter" placeholder="Filter tags…" aria-label="Filter tags"
+             autocomplete="off">
+      <button type="button" id="tag-clear" hidden>Clear</button>
+    </div>
+    <div id="tag-options" class="tag-options">
+      {% for tag in tags %}
+      <label class="tag-option" data-name="{{ tag.name }}">
+        <input type="checkbox" name="tags" value="{{ tag.name }}">
+        <span>{{ tag.name }}</span>
+        <span class="tag-count">{{ tag.document_count }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <p id="tag-none" class="empty" hidden>No tags match.</p>
+    <p class="muted">Most used first. Results show documents with all the selected tags.</p>
+    {% else %}
+    <p class="empty">No tags yet.</p>
+    {% endif %}
+  </fieldset>
+</form>
+<div id="results"></div>
+{% endblock %}

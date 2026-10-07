@@ -1,0 +1,118 @@
+# mynotes full stack: PostgreSQL, OpenSearch, and the mynotes worker and web/API server.
+# Run from this folder: variables come from ./.env (copy .env.example), settings from
+# ./mynotes.yaml (copy mynotes.example.yaml). See README.md in this folder.
+name: mynotes-stack
+
+x-app: &app
+  # The published image; MYNOTES_VERSION pins a release (default: the latest one).
+  # To build from a source checkout instead, add `-f docker-compose.build.yml` (see README.md).
+  image: ghcr.io/alvesman/znotes:${MYNOTES_VERSION:-latest}
+  restart: unless-stopped
+  env_file: .env
+  environment:
+    # Service addresses inside the compose network; these override .env.
+    MYNOTES_CONFIG: /config/mynotes.yaml
+    MYNOTES_PG_DSN: postgresql+psycopg://mynotes:${MYNOTES_COMPOSE_PG_PASSWORD}@postgres:5432/mynotes
+    MYNOTES_OPENSEARCH_URL: https://opensearch:9200
+    MYNOTES_OPENSEARCH_USER: admin
+  # Lets the containers reach model servers on this machine (e.g. Ollama) at
+  # http://host.docker.internal:<port>, also on Linux.
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  volumes:
+    - ./mynotes.yaml:/config/mynotes.yaml:ro
+    # Your notes, read-only. mynotes.yaml's roots point inside /notes.
+    - ${MYNOTES_NOTES_DIR:?set MYNOTES_NOTES_DIR in .env}:/notes:ro
+    # State files and tokenizer caches, shared by the worker and the web server.
+    - apphome:/home/mynotes
+
+services:
+  postgres:
+    image: postgres:18.6
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mynotes
+      POSTGRES_DB: mynotes
+      POSTGRES_PASSWORD: ${MYNOTES_COMPOSE_PG_PASSWORD:?set MYNOTES_COMPOSE_PG_PASSWORD in .env}
+    # Not published: use `docker compose exec postgres psql -U mynotes` from the host.
+    volumes:
+      # PostgreSQL 18+ images keep data under /var/lib/postgresql/<major>/docker
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mynotes -d mynotes"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  opensearch:
+    image: opensearchproject/opensearch:3.8.0
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      bootstrap.memory_lock: "true"
+      # Absolute free-space watermarks instead of the 85/90/95 % defaults, which block index
+      # creation on large, fairly full disks (e.g. 90 % of 2 TB still leaves ~200 GB free).
+      cluster.routing.allocation.disk.watermark.low: ${MYNOTES_COMPOSE_OS_DISK_LOW:-20gb}
+      cluster.routing.allocation.disk.watermark.high: ${MYNOTES_COMPOSE_OS_DISK_HIGH:-10gb}
+      cluster.routing.allocation.disk.watermark.flood_stage: ${MYNOTES_COMPOSE_OS_DISK_FLOOD:-5gb}
+      OPENSEARCH_JAVA_OPTS: "-Xms${MYNOTES_COMPOSE_OS_HEAP:-2g} -Xmx${MYNOTES_COMPOSE_OS_HEAP:-2g}"
+      # Must be strong: >= 8 chars with upper, lower, digit and special character.
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${MYNOTES_OPENSEARCH_PASSWORD:?set MYNOTES_OPENSEARCH_PASSWORD in .env}
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    # Not published: only the mynotes containers talk to OpenSearch.
+    volumes:
+      - osdata:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sk -u \"admin:$$OPENSEARCH_INITIAL_ADMIN_PASSWORD\" https://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+
+  # One-shot: migrations, source roots and search indices. Idempotent, so it runs on every
+  # `up` and applies schema upgrades after a new image is built.
+  init:
+    <<: *app
+    restart: "no"
+    command: ["mynotes", "init"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+
+  # Scans on schedule (and watches, if enabled), extracts, embeds, indexes, builds the graph.
+  worker:
+    <<: *app
+    command: ["mynotes", "worker"]
+    depends_on:
+      init:
+        condition: service_completed_successfully
+
+  # Web UI and HTTP API. Listens on all interfaces inside the container, but the port is
+  # published on the host's localhost only: there is no login with auth.mode none.
+  web:
+    <<: *app
+    command: ["mynotes", "serve", "--host", "0.0.0.0", "--port", "8765"]
+    ports:
+      - "127.0.0.1:${MYNOTES_WEB_PORT:-8765}:8765"
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/healthz', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  pgdata:
+  osdata:
+  apphome:
