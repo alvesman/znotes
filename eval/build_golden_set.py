@@ -13,6 +13,13 @@
         explicit ``filters.tags`` and 8 no-answer questions about topics
         absent from the corpus.
 
+    uv run python -m eval.build_golden_set --verify eval/golden_set.yaml
+        Trace each reference answer in its expected document.
+
+    uv run python -m eval.build_golden_set --alternates eval/golden_set.yaml
+        List the other documents that contain each reference answer (weekly
+        notes copied forward), so ``expected_docs`` can name every copy.
+
 The draft is written to ``eval/golden_set_draft.yaml`` with ids ``d001...``.
 A HUMAN MUST REVIEW it (verify expected pages, fix reference answers, delete
 weak questions) and save the result as ``eval/golden_set.yaml``; Part B (RRF
@@ -768,6 +775,113 @@ def verify_questions(path: Path) -> None:
     console.print_json(json.dumps(dict(sorted(counts.items()))))
 
 
+ALTERNATE_MIN_CHARS = 12
+"""Shorter reference answers ("3", "sim") appear in many notes by chance: not audited."""
+
+ALTERNATE_MAX_PARTIAL = 5
+"""Partial matches listed per question, best first."""
+
+
+@dataclass
+class Alternates:
+    """Other documents that contain a question's reference answer.
+
+    Attributes:
+        verbatim: Documents outside ``expected_docs`` where the answer traces
+            verbatim (``answer_match`` score 1.0), sorted by path.
+        partial: Up to ``ALTERNATE_MAX_PARTIAL`` other documents with a
+            partial match (``VERIFY_PARTIAL`` <= score < 1.0), best first.
+        skipped: Why the question was not audited, or None.
+    """
+
+    verbatim: list[str] = field(default_factory=list)
+    partial: list[tuple[str, float]] = field(default_factory=list)
+    skipped: str | None = None
+
+
+def find_alternates(
+    questions: Sequence[dict[str, Any]],
+    chunk_index: dict[str, list[tuple[str, int | None, int | None]]],
+) -> dict[str, Alternates]:
+    """For each answerable question, the other documents that contain its answer.
+
+    Weekly notes copied forward keep the same lines, so an answer often exists
+    in several documents while ``expected_docs`` names one: retrieval then
+    "misses" questions it answers from a copy. Uses the same tracing as
+    ``--verify`` (:func:`answer_match`).
+
+    Args:
+        questions: Golden-set questions.
+        chunk_index: ``load_chunk_index`` output for every current document.
+
+    Returns:
+        ``{question_id: Alternates}`` for the questions with ``expected_docs``.
+    """
+    result: dict[str, Alternates] = {}
+    for question in questions:
+        expected = set(question.get("expected_docs") or [])
+        if not expected:
+            continue
+        answer = question.get("reference_answer") or ""
+        if len(normalize_key(answer)) < ALTERNATE_MIN_CHARS:
+            result[question["id"]] = Alternates(skipped="answer too short to audit")
+            continue
+        found = Alternates()
+        for path, chunks in chunk_index.items():
+            if path in expected:
+                continue
+            score, _ = answer_match(answer, chunks)
+            if score >= VERIFY_OK:
+                found.verbatim.append(path)
+            elif score >= VERIFY_PARTIAL:
+                found.partial.append((path, round(score, 2)))
+        found.verbatim.sort()
+        found.partial.sort(key=lambda item: (-item[1], item[0]))
+        del found.partial[ALTERNATE_MAX_PARTIAL:]
+        result[question["id"]] = found
+    return result
+
+
+def report_alternates(path: Path) -> None:
+    """Print, per question, the other documents that contain its reference answer (read-only).
+
+    Args:
+        path: The golden-set YAML to audit.
+    """
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    questions = data.get("questions") or []
+    with session_scope() as session:
+        paths = session.execute(
+            select(File.rel_path)
+            .join(Document, Document.current_file_id == File.id)
+            .where(Document.status == "current")
+        ).scalars()
+        chunk_index = load_chunk_index(session, sorted(set(paths)))
+    alternates = find_alternates(questions, chunk_index)
+    table = Table(title=f"alternates {path} ({len(alternates)} answerable questions)")
+    for column in ("id", "expected", "verbatim elsewhere", "partial elsewhere"):
+        table.add_column(column, overflow="fold")
+    counts: Counter[str] = Counter()
+    for question in questions:
+        found = alternates.get(question["id"])
+        if found is None:
+            continue
+        if found.skipped:
+            counts["skipped"] += 1
+            continue
+        counts["with verbatim copies" if found.verbatim else "no verbatim copies"] += 1
+        if not found.verbatim and not found.partial:
+            continue
+        table.add_row(
+            question["id"],
+            "\n".join(question["expected_docs"]),
+            "\n".join(found.verbatim) or "-",
+            "\n".join(f"{doc} ({score:.2f})" for doc, score in found.partial) or "-",
+        )
+    console.print(table)
+    console.print_json(json.dumps(dict(sorted(counts.items()))))
+
+
 def draft(n_target: int, out: Path, workers: int, seed: int) -> None:
     """Draft the golden-set questions and write the review YAML.
 
@@ -864,6 +978,12 @@ def main() -> None:
         metavar="YAML",
         help="check a golden-set file's reference answers against the indexed chunks",
     )
+    parser.add_argument(
+        "--alternates",
+        type=Path,
+        metavar="YAML",
+        help="list other documents that contain each question's reference answer (read-only)",
+    )
     parser.add_argument("--n", type=int, default=80, help="target number of draft questions")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT, help="draft output YAML path")
     parser.add_argument("--workers", type=int, default=4, help="parallel LLM drafting calls")
@@ -875,6 +995,8 @@ def main() -> None:
         draft(args.n, args.out, args.workers, args.seed)
     elif args.verify:
         verify_questions(args.verify)
+    elif args.alternates:
+        report_alternates(args.alternates)
     else:
         parser.print_help()
 

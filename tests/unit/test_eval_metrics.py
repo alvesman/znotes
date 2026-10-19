@@ -154,3 +154,43 @@ def test_no_answer_correct_counts_model_declines() -> None:
     question = {"id": "q070", "category": "no-answer"}
     declined = {"answer": "Essa data não consta nas notas fornecidas.", "relevant": True}
     assert m.no_answer_correct(question, declined) is True
+
+
+def test_question_split_is_stable_and_about_thirty_percent():
+    ids = [f"q{i:03d}" for i in range(1, 401)]
+    splits = [m.question_split(question_id) for question_id in ids]
+    assert splits == [m.question_split(question_id) for question_id in ids]  # deterministic
+    assert set(splits) == {"dev", "holdout"}
+    assert 0.22 < splits.count("holdout") / len(ids) < 0.38
+
+
+def test_select_split_partitions_the_questions():
+    questions = [{"id": f"q{i:03d}"} for i in range(1, 61)]
+    dev = m.select_split(questions, "dev")
+    holdout = m.select_split(questions, "holdout")
+    assert len(dev) + len(holdout) == 60
+    assert not {q["id"] for q in dev} & {q["id"] for q in holdout}
+    assert m.select_split(questions, "all") == questions
+
+
+def test_candidate_metrics_pool_and_window():
+    fused = [WRONG_DOC, WRONG_DOC, HIT]
+    assert m.candidate_metrics(QUESTION, fused, fused[:2]) == {
+        "candidates": 3,
+        "pool_hit": True,
+        "window_hit": False,
+    }
+    assert m.candidate_metrics(QUESTION, [WRONG_DOC], [WRONG_DOC])["pool_hit"] is False
+    no_target = dict(QUESTION, expected_docs=[])
+    assert m.candidate_metrics(no_target, fused, fused)["window_hit"] is None
+
+
+def test_funnel_splits_the_losses_by_stage():
+    stages = m.funnel({"doc_hit@5": 0.7}, {"pool_hit": 0.95, "window_hit": 0.85})
+    assert stages == {
+        "not_found": 0.05,
+        "cut_before_rerank": 0.1,
+        "ranked_below_5": 0.15,
+        "in_top_5": 0.7,
+    }
+    assert m.funnel({"mrr": 0.5}, {"mrr": 0.4}) is None

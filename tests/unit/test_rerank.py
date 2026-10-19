@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 from fakes import FakeReranker
 from mynotes.llm.errors import EndpointUnavailable
-from mynotes.retrieval.rerank import rerank_document_text, rerank_hits
+from mynotes.retrieval.rerank import rerank_document_text, rerank_hits, rerank_window
 from mynotes.retrieval.rerank_client import RerankResult
 from mynotes.retrieval.types import SearchHit
 
@@ -133,3 +133,16 @@ def test_reranker_failure_degrades_to_the_input_order() -> None:
 
 def test_empty_input_returns_empty() -> None:
     assert rerank_hits("q", [], FakeReranker(), top=5) == []
+
+
+def test_rerank_window_keeps_the_top_and_ten_hinted_hits_beyond() -> None:
+    hits = [_hit(f"c{i}", i, "text") for i in range(1, 31)]
+    for hit in hits[5:]:
+        if int(hit.chunk_id[1:]) % 2 == 0:
+            hit.query_hint = "Memoranda"
+
+    window = rerank_window(hits, 5)
+
+    ids = [hit.chunk_id for hit in window]
+    assert ids[:5] == ["c1", "c2", "c3", "c4", "c5"]
+    assert ids[5:] == [f"c{i}" for i in range(6, 26, 2)]  # the first ten hinted hits only

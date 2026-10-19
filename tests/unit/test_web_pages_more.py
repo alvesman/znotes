@@ -65,6 +65,22 @@ def test_document_page_renders_heading_ids_and_escapes_html(
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in response.text
 
 
+def test_document_page_wraps_fenced_code_for_copy_buttons(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    markdown = "# Notas\n\n```bash\necho <ok> && ls\n```\n\n    indentado\n"
+    _patch_document(monkeypatch, _view(markdown=markdown, format="md"))
+    response = _client().get("/ui/documents/5")
+    assert response.status_code == 200, response.text
+    assert (
+        '<div class="code-block" data-copy-code><pre><code class="language-bash">'
+        "echo &lt;ok&gt; &amp;&amp; ls\n</code></pre>\n</div>"
+    ) in response.text
+    assert "<pre><code>indentado\n</code></pre>" in response.text  # indented: no button
+    assert response.text.count("data-copy-code") == 1
+    assert "markdown.js" in response.text
+
+
 def test_document_page_shows_accept_reject_only_for_proposed_llm_tags(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

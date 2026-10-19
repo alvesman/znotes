@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ view.title or view.path }} · mynotes{% endblock %}
+{% block head %}<script src="{{ asset('markdown.js') }}" defer></script>{% endblock %}
 {% block content %}
 <header class="doc-header">
   <h1>{{ view.title or view.path }}</h1>

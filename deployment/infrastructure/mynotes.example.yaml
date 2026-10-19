@@ -131,6 +131,7 @@ retrieval:
     source_weights: {hybrid: 1.0, graph: 0.6, version: 0.8}   # client-side RRF
   min_rerank_score: 0.0          # "not found" gate off: the LLM declines itself (golden set v1, 2026-09-28)
   candidates: 50
+  knn_k: 200                     # neighbours the vector search considers before keeping `candidates`
   rerank_top: 40
   max_docs: 4
   max_chunks: 10
@@ -138,7 +139,6 @@ retrieval:
   graph_hops: 1
   graph_method: one_hop         # or "ppr" (Personalized PageRank, pair with graph_hops: 2)
   context_tokens: 3500
-  query_translation: false       # PT<->EN translation of the query for the BM25 leg
 
 # Secrets (postgres dsn, OpenSearch password) come from .env; see .env.example.
 opensearch:

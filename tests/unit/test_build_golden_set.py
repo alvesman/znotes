@@ -15,6 +15,7 @@ from eval.build_golden_set import (
     DraftedQuestion,
     answer_match,
     assign_cross_lingual,
+    find_alternates,
     question_row,
     select_excerpts,
     stratified_pick,
@@ -166,3 +167,31 @@ def test_answer_match_empty_answer() -> None:
 def test_answer_match_punctuation_only_answer_matches_verbatim() -> None:
     table = "| Left | Center |\n|:---|:------------:|\n| a | b |"
     assert answer_match(":------------:", _chunks("no table here", table)) == (1.0, 2)
+
+
+def _plain_chunks(*texts: str) -> list[tuple[str, int | None, int | None]]:
+    return [(normalize_key(text), None, None) for text in texts]
+
+
+def test_find_alternates_lists_copies_of_the_answer() -> None:
+    answer = "Ana + Rui + Marta Lopes"
+    index = {
+        "meetings/2025-06-02.md": _plain_chunks(f"- {answer} -> energia. Outros pontos."),
+        "meetings/2025-07-01.md": _plain_chunks(f"- {answer} -> energia."),
+        "meetings/2025-08-04.md": _plain_chunks(
+            "Ana, Rui e Marta continuam."
+        ),  # partial: 3 of 4 words
+        "other.md": _plain_chunks("Nada a ver."),
+    }
+    questions = [
+        {"id": "q1", "expected_docs": ["meetings/2025-07-01.md"], "reference_answer": answer},
+        {"id": "q2", "expected_docs": ["other.md"], "reference_answer": "8080"},
+        {"id": "q3", "expected_docs": [], "reference_answer": answer},
+    ]
+
+    found = find_alternates(questions, index)
+
+    assert set(found) == {"q1", "q2"}  # q3 has no expected document
+    assert found["q1"].verbatim == ["meetings/2025-06-02.md"]  # the expected doc is excluded
+    assert found["q1"].partial == [("meetings/2025-08-04.md", 0.75)]
+    assert found["q2"].skipped == "answer too short to audit"

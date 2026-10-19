@@ -30,6 +30,7 @@ To update later: `docker compose pull && docker compose up -d`. Details, backups
 - **[User manual](docs/user-manual.md)**: installation (native or Docker), choosing models, asking and searching, filters, the web interface, Claude (MCP), keeping the index up to date, tags, versions, the knowledge graph, configuration, backups, troubleshooting and the full command reference.
 - **[Web interface manual](docs/web-interface-manual.md)**: each page of the browser interface.
 - **[MCP guide](docs/mcp.md)**: using mynotes from Claude Code and Claude Desktop.
+- **[How retrieval ranks the notes](docs/retrieval.md)**: candidate sources, fusion, reranking and context selection, with the settings that tune them.
 
 ## Development
 

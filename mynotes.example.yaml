@@ -140,6 +140,7 @@ retrieval:
     source_weights: {hybrid: 1.0, graph: 0.6, version: 0.8}   # client-side RRF
   min_rerank_score: 0.0          # "not found" gate off: the LLM declines itself (golden set v1, 2026-09-28)
   candidates: 50
+  knn_k: 200                     # neighbours the vector search considers before keeping `candidates`
   rerank_top: 40
   max_docs: 4
   extra_docs_min_ratio: 1.0      # score-gap rule: admit up to extra_docs_max more documents whose best rerank score is >= this x the top score (1.0 = off)
@@ -159,7 +160,6 @@ retrieval:
   recency_half_life_days: 365   # a document this old gets the midpoint between 1.0 and the floor
   recency_min_multiplier: 0.8   # floor: a very old document keeps 80% of its score
   context_tokens: 3500
-  query_translation: false       # PT<->EN translation of the query for the BM25 leg
 
 # Secrets (postgres dsn, OpenSearch password) come from .env; see .env.example.
 opensearch:

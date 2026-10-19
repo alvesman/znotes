@@ -10,6 +10,7 @@ the aggregate means (the same for ``page_hit@k`` without ``expected_pages``).
 
 from __future__ import annotations
 
+import hashlib
 import re
 import unicodedata
 from collections import defaultdict
@@ -25,6 +26,41 @@ _RETRIEVAL_KEYS: tuple[str, ...] = (
     *(f"doc_hit@{k}" for k in K_VALUES),
     *(f"page_hit@{k}" for k in K_VALUES),
 )
+
+
+HOLDOUT_FRACTION = 0.3
+"""Share of every golden set kept out of tuning (:func:`question_split`)."""
+
+_SPLIT_SALT = "mynotes-holdout-v1"
+"""Changing the salt reshuffles every split: never change it."""
+
+SPLITS = ("all", "dev", "holdout")
+
+
+def question_split(question_id: str) -> str:
+    """The split of one question: ``"holdout"`` for about 30 %, else ``"dev"``.
+
+    Decided by a hash of the id alone, so a question never changes split when
+    others are added or removed, and no golden-set file needs a split field.
+    Tune on ``dev`` only; run ``holdout`` to confirm a finished change.
+
+    Args:
+        question_id: The golden-set question id.
+
+    Returns:
+        ``"dev"`` or ``"holdout"``.
+    """
+    digest = hashlib.sha256(f"{_SPLIT_SALT}:{question_id}".encode()).hexdigest()
+    return "holdout" if int(digest[:8], 16) / 0xFFFFFFFF < HOLDOUT_FRACTION else "dev"
+
+
+def select_split(questions: list[dict[str, Any]], split: str) -> list[dict[str, Any]]:
+    """The questions of one split (``"all"`` keeps every question)."""
+    if split not in SPLITS:
+        raise ValueError(f"unknown split {split!r}; expected one of {', '.join(SPLITS)}")
+    if split == "all":
+        return list(questions)
+    return [question for question in questions if question_split(question["id"]) == split]
 
 
 def strip_accents(s: str) -> str:
@@ -136,6 +172,62 @@ def question_retrieval_metrics(
         metrics[f"doc_hit@{k}"] = doc_hit_at_k(question, ranked, k)
         metrics[f"page_hit@{k}"] = page_hit_at_k(question, ranked, k)
     return metrics
+
+
+def candidate_metrics(
+    question: dict[str, Any], fused: list[dict[str, Any]], window: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Candidate recall before reranking: is the expected document there at all?
+
+    The reranker reorders only the window it is given, so a document missing
+    from ``window`` can't be ranked first however good the reranker is; one
+    missing from ``fused`` was never found by any source.
+
+    Args:
+        question: The golden-set question.
+        fused: Every fused candidate, in fused order.
+        window: The candidates sent to the reranker
+            (:func:`mynotes.retrieval.rerank.rerank_window`).
+
+    Returns:
+        ``pool_hit`` (expected document among all candidates), ``window_hit``
+        (among the reranked window), both None without ``expected_docs``, and
+        ``candidates`` (the pool size).
+    """
+    metrics: dict[str, Any] = {"candidates": len(fused)}
+    if not _expected_docs(question):
+        metrics.update(pool_hit=None, window_hit=None)
+        return metrics
+    metrics["pool_hit"] = any(_doc_matches(question, hit) for hit in fused)
+    metrics["window_hit"] = any(_doc_matches(question, hit) for hit in window)
+    return metrics
+
+
+def funnel(reranked: dict[str, Any], fused: dict[str, Any], k: int = 5) -> dict[str, float] | None:
+    """Where the expected documents are lost, as shares of the measurable questions.
+
+    Args:
+        reranked: The ``overall`` aggregate of the reranked list.
+        fused: The ``overall`` aggregate of the fused list (with ``pool_hit``
+            and ``window_hit``).
+        k: The final cutoff (``doc_hit@k`` after reranking).
+
+    Returns:
+        ``not_found`` (no source returned the document), ``cut_before_rerank``
+        (found, but fused below the rerank window), ``ranked_below_k`` (reranked,
+        but not in the top ``k``) and ``in_top_k``; they sum to 1. None when the
+        aggregates lack the metrics.
+    """
+    try:
+        pool, window, top = fused["pool_hit"], fused["window_hit"], reranked[f"doc_hit@{k}"]
+    except KeyError:
+        return None
+    return {
+        "not_found": round(1 - pool, 4),
+        "cut_before_rerank": round(pool - window, 4),
+        f"ranked_below_{k}": round(window - top, 4),
+        f"in_top_{k}": round(top, 4),
+    }
 
 
 def source_attribution_correct(question: dict[str, Any], sources: list[dict[str, Any]]) -> bool:

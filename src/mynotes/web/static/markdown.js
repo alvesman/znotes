@@ -1,6 +1,7 @@
 /* Markdown rendering shared by the chat answers and the search snippets. Built from DOM nodes
    only (no innerHTML): raw HTML in the text stays text. Exposes
-   window.MynotesMarkdown.render(text, rootElement). */
+   window.MynotesMarkdown.render(text, rootElement). Also gives the code blocks the server
+   renders on the note page (<div class="code-block" data-copy-code>) the same Copy button. */
 "use strict";
 
 (function () {
@@ -265,5 +266,25 @@
     }
   }
 
-  window.MynotesMarkdown = { render: render };
+  // Copy buttons for server-rendered code blocks (the note page, web/render.py)
+  function addCopyButtons(root) {
+    var blocks = (root || document).querySelectorAll(".code-block[data-copy-code]");
+    Array.prototype.forEach.call(blocks, function (block) {
+      var pre = block.querySelector("pre");
+      if (!pre || block.querySelector(".copy-code")) {
+        return;
+      }
+      block.appendChild(copyButton(pre.textContent.replace(/\n$/, "")));
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () {
+      addCopyButtons(document);
+    });
+  } else {
+    addCopyButtons(document);
+  }
+
+  window.MynotesMarkdown = { render: render, addCopyButtons: addCopyButtons };
 })();

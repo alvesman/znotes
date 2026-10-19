@@ -380,6 +380,23 @@ fieldset.tag-filter {
   color: var(--badge-fg);
 }
 
+.doc-content pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.6rem 0.8rem;
+  overflow-x: auto;
+}
+
+.doc-content pre code {
+  background: none;
+  padding: 0;
+}
+
+/* Fenced code blocks get a Copy button (markdown.js addCopyButtons) */
+.doc-content .code-block { position: relative; margin: 0 0 1em; }
+.doc-content .code-block pre { margin: 0; padding-top: 2em; }
+
 /* Help page: the manuals rendered from docs/ */
 
 .help-tabs a {
@@ -665,9 +682,9 @@ fieldset.tag-filter {
 .md .answer-table th { background: rgba(127, 127, 127, 0.14); }
 .md .code-block { position: relative; margin: 0 0 0.8em; }
 .md .code-block pre { margin: 0; padding-top: 1.9em; }
-.md .copy-code { position: absolute; top: 0.3em; right: 0.4em; padding: 0.15em 0.6em; font-size: 0.8em; cursor: pointer; border: 1px solid rgba(127, 127, 127, 0.5); border-radius: 4px; background: rgba(127, 127, 127, 0.18); color: inherit; }
-.md .copy-code:hover { background: rgba(127, 127, 127, 0.32); }
-.md .copy-code.copied { border-color: #2e8b57; }
+.md .copy-code, .doc-content .copy-code { position: absolute; top: 0.3em; right: 0.4em; padding: 0.15em 0.6em; font-size: 0.8em; cursor: pointer; border: 1px solid rgba(127, 127, 127, 0.5); border-radius: 4px; background: rgba(127, 127, 127, 0.18); color: inherit; }
+.md .copy-code:hover, .doc-content .copy-code:hover { background: rgba(127, 127, 127, 0.32); }
+.md .copy-code.copied, .doc-content .copy-code.copied { border-color: #2e8b57; }
 
 /* Search: results far below the best rerank score, collapsed (routes.split_weak_hits) */
 .weak-hits { margin-top: 0.75rem; }

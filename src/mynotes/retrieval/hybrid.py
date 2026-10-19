@@ -118,7 +118,7 @@ def build_filter_clauses(f: SearchFilters) -> list[dict[str, Any]]:
 
 
 def build_hybrid_body(
-    query: str, query_vector: list[float], f: SearchFilters, size: int
+    query: str, query_vector: list[float], f: SearchFilters, size: int, knn_k: int | None = None
 ) -> dict[str, Any]:
     """Build the native ``hybrid`` query body for the RRF pipeline.
 
@@ -132,6 +132,9 @@ def build_hybrid_body(
         query_vector: The query embedding.
         f: The filters to apply to both legs.
         size: Number of candidates to fetch per leg and overall.
+        knn_k: Neighbours the approximate k-NN search considers (at least
+            ``size``; default ``size``). A larger ``k`` makes the HNSW search
+            wider, so its top ``size`` comes closer to the exact top ``size``.
 
     Returns:
         The ``client.search`` body.
@@ -141,7 +144,7 @@ def build_hybrid_body(
         "knn": {
             "embedding": {
                 "vector": list(query_vector),
-                "k": size,
+                "k": max(size, knn_k or size),
                 "filter": {"bool": {"filter": clauses}},
             }
         }
@@ -335,7 +338,9 @@ def hybrid_search(
     active_filters = filters if filters is not None else SearchFilters()
     active_filters = _resolve_tag_filters(settings, active_filters)
     query_vector = get_embedder().embed_query(query, task="retrieval")
-    body = build_hybrid_body(query, query_vector, active_filters, fetch_size)
+    body = build_hybrid_body(
+        query, query_vector, active_filters, fetch_size, knn_k=settings.retrieval.knn_k
+    )
     response = get_client().search(
         index=settings.opensearch.chunks_alias,
         body=body,

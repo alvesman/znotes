@@ -84,6 +84,9 @@ class RetrievalResult:
         hits: The final hits, reranked when reranking ran, capped at
             ``settings.retrieval.max_chunks * 2``.
         candidates: The fused candidate count before reranking.
+        fused: Every fused candidate in fused order, before reranking and the
+            cap (the eval harness measures candidate recall on it). The hit
+            objects are shared with ``hits``, so their ``rank`` is the final one.
         relevant: Whether the best rerank score reaches
             ``settings.retrieval.min_rerank_score``; always True when
             reranking was skipped or degraded.
@@ -95,6 +98,7 @@ class RetrievalResult:
     candidates: int
     relevant: bool
     timings_ms: dict[str, int] = field(default_factory=dict)
+    fused: list[SearchHit] = field(default_factory=list)
 
 
 def _elapsed_ms(started: float) -> int:
@@ -186,6 +190,7 @@ def retrieve(
         settings.retrieval.fusion.rank_constant,
     )
     candidates = len(fused)
+    fused_order = list(fused)
     timings["fuse"] = _elapsed_ms(started)
 
     started = time.perf_counter()
@@ -238,6 +243,7 @@ def retrieve(
         candidates=candidates,
         relevant=relevant,
         timings_ms=timings,
+        fused=fused_order,
     )
 
 

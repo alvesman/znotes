@@ -364,6 +364,27 @@ def promote_bridge_hit(
     return reordered
 
 
+def rerank_window(hits: Sequence[SearchHit], top: int) -> list[SearchHit]:
+    """The hits sent to the reranker: the first ``top`` plus a few hinted hits beyond them.
+
+    Second-hop evidence often fuses in late (one source, mid rank), so up to
+    ``_HINTED_BEYOND_TOP`` hinted hits past the window are kept in the rerank
+    where the hint can still lift them. Everything else past ``top`` is dropped
+    by :func:`rerank_hits`. The eval harness measures whether the expected
+    document is in this window (``window_hit``).
+
+    Args:
+        hits: Candidates in fused order.
+        top: ``retrieval.rerank_top``.
+
+    Returns:
+        The window, in fused order with the hinted extras last.
+    """
+    head = list(hits[: max(0, top)])
+    extra = [hit for hit in hits[max(0, top) :] if hit.query_hint][:_HINTED_BEYOND_TOP]
+    return [*head, *extra]
+
+
 def rerank_hits(
     query: str,
     hits: Sequence[SearchHit],
@@ -393,11 +414,7 @@ def rerank_hits(
     hits = list(hits)
     if not hits:
         return []
-    head = hits[: max(0, top)]
-    # Second-hop evidence often fuses in late (one source, mid rank); keep a few hinted
-    # hits beyond the window in the rerank so the hint can still lift them.
-    extra = [hit for hit in hits[max(0, top) :] if hit.query_hint][:_HINTED_BEYOND_TOP]
-    head = [*head, *extra]
+    head = rerank_window(hits, top)
     documents = [rerank_document_text(hit) for hit in head]
     try:
         results = reranker.rerank(query, documents, top_n=None)

@@ -1,14 +1,15 @@
 """RRF parameter sweep over the golden set (task 32, Part B step 2).
 
-    uv run python -m eval.sweep_rrf [--tag m2-sweep] [--limit N]
+    uv run python -m eval.sweep_rrf [--tag m2-sweep] [--split dev] [--limit N]
 
 For ``rank_constant`` in {20, 40, 60, 80} x ``hybrid_weights`` in
 {[0.3,0.7], [0.5,0.5], [0.7,0.3]}: build the settings with
 ``Settings.model_copy(update=...)``, patch every module-level ``get_settings``
 reference, re-PUT the OpenSearch RRF pipeline (``ensure_pipeline``) and run a
 retrieval-only eval (fused + reranked per question). Configurations are ranked
-by **pre-rerank** MRR and doc_hit@5 (the top-50 candidate list the reranker
-sees), then by post-rerank MRR. The original pipeline and settings are always
+by **pre-rerank** MRR and doc_hit@5 (the fused candidate list the reranker
+sees), then by post-rerank MRR. The sweep runs on the ``dev`` split by
+default, so the hold-out questions stay unseen. The original pipeline and settings are always
 restored (``try/finally``). A per-config summary table is printed and the full
 per-question results are written to ``eval/results/<stamp>_<tag>.json``.
 """
@@ -216,11 +217,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tag", default="m2-sweep", help="label for the results file")
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
+    parser.add_argument(
+        "--split", choices=m.SPLITS, default="dev", help="golden-set part to tune on (dev)"
+    )
     parser.add_argument("--limit", type=int, default=None, help="only the first N questions")
     args = parser.parse_args()
 
     dataset = load_dataset(args.dataset)
-    questions = list(dataset["questions"])
+    questions = m.select_split(list(dataset["questions"]), args.split)
     if args.limit:
         questions = questions[: args.limit]
 

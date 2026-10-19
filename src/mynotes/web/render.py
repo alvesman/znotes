@@ -5,7 +5,9 @@ in the source disabled, tables enabled). Every heading receives an ``id`` of
 ``sec-<slug>`` so citation links can scroll to it, and, when the URL carries
 ``?chunk=<ordinal>``, the paragraphs belonging to that chunk are wrapped in
 ``<mark>`` (best effort: the first 60 characters of each chunk block are
-matched against the rendered paragraphs).
+matched against the rendered paragraphs). Fenced code blocks are wrapped in
+``<div class="code-block" data-copy-code>`` so ``markdown.js`` can add a Copy
+button to each.
 """
 
 from __future__ import annotations
@@ -50,10 +52,12 @@ def render_document_markdown(markdown: str, chunk_text: str | None = None) -> st
 
     Returns:
         The HTML. Raw HTML from the Markdown source is escaped by the parser;
-        the only markup added here is heading ``id`` attributes and ``mark``
-        wrappers, so the result is safe to include with autoescaping off.
+        the only markup added here is heading ``id`` attributes, ``mark``
+        wrappers and code-block containers, so the result is safe to include
+        with autoescaping off.
     """
     parser = MarkdownIt("commonmark", {"html": False}).enable("table")
+    _wrap_fences(parser)
     tokens = parser.parse(markdown)
     _add_heading_ids(tokens)
     if chunk_text:
@@ -107,6 +111,21 @@ def _rewrite_help_link(href: str, doc_links: Mapping[str, str], source_base_url:
         return f"{target}#sec-{fragment}" if fragment else target
     normalized = posixpath.normpath(posixpath.join("docs", path))
     return f"{source_base_url.rstrip('/')}/{normalized}" + (f"#{fragment}" if fragment else "")
+
+
+def _wrap_fences(parser: MarkdownIt) -> None:
+    """Wrap each fenced (```) code block in a container ``markdown.js`` gives a Copy button.
+
+    Indented code blocks are left alone: in extracted PDF and Office text they
+    are usually stray indentation, not code.
+    """
+    render_fence = parser.renderer.rules["fence"]
+
+    def fence(tokens: list[Token], idx: int, options: object, env: object) -> str:
+        inner = render_fence(tokens, idx, options, env)
+        return f'<div class="code-block" data-copy-code>{inner}</div>\n'
+
+    parser.renderer.rules["fence"] = fence
 
 
 def _add_heading_ids(tokens: list[Token]) -> None:

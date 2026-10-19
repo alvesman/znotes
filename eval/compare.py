@@ -108,6 +108,12 @@ def main() -> None:
         console.print(
             "[red]WARNING: the golden set differs between runs; deltas are not comparable![/]"
         )
+    base_split, cand_split = base.get("split", "all"), cand.get("split", "all")
+    if base_split != cand_split:
+        console.print(
+            f"[red]WARNING: different golden-set splits ({base_split} vs {cand_split}); "
+            "deltas are not comparable![/]"
+        )
 
     for section, key_metric in _SECTIONS:
         if section in base and section in cand:
@@ -117,6 +123,12 @@ def main() -> None:
                 cand[section]["aggregate"]["overall"],
                 f"{section} overall",
             )
+            if "aggregate_fused" in base[section] and "aggregate_fused" in cand[section]:
+                _aggregate_delta(
+                    base[section]["aggregate_fused"]["overall"],
+                    cand[section]["aggregate_fused"]["overall"],
+                    "retrieval before rerank (fused; pool_hit, window_hit)",
+                )
             _slice_deltas(base[section]["aggregate"], cand[section]["aggregate"])
             _per_question_changes(
                 base[section]["per_question"], cand[section]["per_question"], key_metric

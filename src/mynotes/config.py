@@ -368,6 +368,10 @@ class RetrievalConfig(_StrictModel):
     # decline when the notes lack the answer (docs/eval/v1-reviewed-results.md).
     min_rerank_score: float = 0.0
     candidates: int = 50
+    # Neighbours the approximate k-NN search considers before the top `candidates` are kept
+    # (None = candidates). HNSW with k = 50 missed a note the exact search ranks 14th; 200 fixed
+    # it with no regression or added latency on golden set v1 (dev and hold-out, 2026-10-19).
+    knn_k: int | None = Field(default=200, gt=0)
     rerank_top: int = 40
     max_docs: int = 4
     # Score-gap rule (docs/improvement-plan.md step 3): after the first max_docs documents, up
@@ -408,7 +412,6 @@ class RetrievalConfig(_StrictModel):
     recency_half_life_days: float = Field(default=365.0, gt=0)
     recency_min_multiplier: float = Field(default=0.8, gt=0, le=1.0)
     context_tokens: int = 3500
-    query_translation: bool = False
 
 
 class PostgresConfig(_StrictModel):

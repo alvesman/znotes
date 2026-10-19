@@ -11,6 +11,9 @@ Modes:
     answers   — full ``answer()`` with citations and the LLM judge.
     both      — both of the above.
 
+``--split dev`` (or ``holdout``) runs one part of the golden set: tune on
+``dev``, confirm a finished change on ``holdout`` (``metrics.question_split``).
+
 ``--variants`` re-runs retrieval for every question with accents stripped
 (case kept), all upper and all lower case, and records the parity of
 doc_hit@5 / MRR against the original (target: no drop larger than 0.02).
@@ -149,6 +152,7 @@ def _hit_record(hit: Any) -> dict[str, Any]:
         "score": hit.score,
         "rerank_score": hit.rerank_score,
         "sources": dict(hit.sources),
+        "hinted": bool(hit.query_hint),
     }
 
 
@@ -166,6 +170,10 @@ def _retrieve_question(
 def eval_retrieval(questions: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Retrieval mode: metrics on the reranked list and the fused list.
 
+    The fused metrics are taken on the **whole** fused candidate list, plus
+    ``pool_hit``/``window_hit``: whether the expected document is among the
+    candidates at all, and among the ones sent to the reranker.
+
     Args:
         questions: The selected golden-set questions.
 
@@ -173,11 +181,20 @@ def eval_retrieval(questions: list[dict[str, Any]]) -> list[dict[str, Any]]:
         One row per question with the reranked records, the pre-rerank fused
         records and both metric dicts.
     """
+    from mynotes.config import get_settings
+    from mynotes.retrieval.rerank import rerank_window
+
     rows: list[dict[str, Any]] = []
     for question in questions:
         fused, fused_ms = _retrieve_question(question["question"], question, rerank=False)
-        fused_ranked = [_hit_record(hit) for hit in fused.hits]
+        fused_ranked = [_hit_record(hit) for hit in fused.fused]
+        for position, record in enumerate(fused_ranked, start=1):
+            record["rank"] = position
+        window = rerank_window(fused.fused, get_settings().retrieval.rerank_top)
         fused_metrics = m.question_retrieval_metrics(question, fused_ranked)
+        fused_metrics.update(
+            m.candidate_metrics(question, fused_ranked, [_hit_record(hit) for hit in window])
+        )
         fused_metrics["fused_latency_ms"] = fused_ms
 
         final, latency_ms = _retrieve_question(question["question"], question)
@@ -319,7 +336,9 @@ def eval_answers(questions: list[dict[str, Any]], with_judge: bool = True) -> li
 def apply_overrides(specs: list[str]) -> dict[str, Any]:
     """Apply ``dotted.key=value`` settings overrides in-process.
 
-    Values are coerced to the current field's type (bool/int/float/str), so
+    Values are coerced to the current field's type (bool/int/float/str; YAML
+    for an optional field that is unset, so ``--set retrieval.knn_k=200`` gives
+    an int), so
     ``--set retrieval.graph_expansion=true`` and ``--set retrieval.graph_hops=2``
     work without YAML. The mutated :func:`~mynotes.config.get_settings` object
     is what the whole process then sees; a final
@@ -356,6 +375,8 @@ def apply_overrides(specs: list[str]) -> dict[str, Any]:
             value = int(raw)
         elif isinstance(current, float):
             value = float(raw)
+        elif current is None:
+            value = yaml.safe_load(raw)  # an unset optional field: "200" -> 200, "null" -> None
         else:
             value = raw
         setattr(node, leaf, value)
@@ -370,6 +391,12 @@ def main() -> None:
     parser.add_argument("--mode", choices=["retrieval", "answers", "both"], default="retrieval")
     parser.add_argument("--tag", required=True, help="label for this run")
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
+    parser.add_argument(
+        "--split",
+        choices=m.SPLITS,
+        default="all",
+        help="golden-set part: dev (tune on it), holdout (confirm only) or all",
+    )
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--ids", type=str, default=None, help="comma-separated question ids")
     parser.add_argument("--no-judge", action="store_true", help="skip the LLM judge")
@@ -385,7 +412,7 @@ def main() -> None:
     args = parser.parse_args()
 
     dataset = load_dataset(args.dataset)
-    questions = list(dataset["questions"])
+    questions = m.select_split(list(dataset["questions"]), args.split)
     if args.ids:
         wanted = set(args.ids.split(","))
         questions = [question for question in questions if question["id"] in wanted]
@@ -400,6 +427,7 @@ def main() -> None:
         "tag": args.tag,
         "timestamp": datetime.now(UTC).isoformat(),
         "mode": args.mode,
+        "split": args.split,
         "n_questions": len(questions),
         "git": git_info(),
         "dataset_sha256": dataset_sha256(args.dataset),
@@ -436,6 +464,14 @@ def main() -> None:
         if section in result:
             console.print(f"--- {section} aggregate (overall):")
             console.print_json(json.dumps(result[section]["aggregate"]["overall"]))
+    retrieval = result.get("retrieval")
+    if retrieval:
+        stages = m.funnel(
+            retrieval["aggregate"]["overall"], retrieval["aggregate_fused"]["overall"]
+        )
+        if stages:
+            console.print("--- where the expected document ends up (share of questions):")
+            console.print_json(json.dumps(stages))
     for name, block in (result.get("variants") or {}).items():
         console.print(f"--- variant {name} parity:")
         console.print_json(json.dumps(block["parity"]))

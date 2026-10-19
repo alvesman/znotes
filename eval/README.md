@@ -14,6 +14,10 @@ explicit `filters: {tags, folders}`, `expected_docs` (rel paths; any match
 counts), optional `expected_pages`, optional `stale_docs`/`stale_values`
 (superseded paths/values for the version metrics) and `reference_answer`.
 
+When an answer exists in several notes (weekly notes copied forward), list every copy in
+`expected_docs`: `uv run python -m eval.build_golden_set --alternates eval/golden_set.yaml`
+lists the other notes that contain each reference answer verbatim.
+
 Documents are identified by **rel path** (stable across re-ingestion), not by
 database ids. Questions without `expected_docs` (e.g. `no-answer`) have no
 measurable retrieval target: their retrieval metrics are `None` and they are
@@ -35,6 +39,21 @@ Makefile shortcuts: `make eval-retrieval TAG=x`, `make eval-full TAG=x`,
 `make eval-compare A=<file> B=<file>`. Add `--ids q001,q002` or `--limit N` to
 shrink a run, `--no-judge` to skip the LLM judge.
 
+### Dev and hold-out splits
+
+Every golden set is split by a hash of each question id: about 70 % **dev**,
+30 % **holdout** (`metrics.question_split`). The split of a question never
+changes when others are added, and no YAML file carries it.
+
+- Tune on dev: `--split dev`. `eval.sweep_rrf` uses dev by default.
+- Run holdout only to confirm a finished change, never to choose between
+  variants: once a hold-out result has steered a decision, it is no longer
+  unseen.
+- `--split all` (the default of `run_eval`) runs every question; results
+  record their split and `compare.py` warns when two runs differ.
+- Retrieval rules added before the split existed (2026-10) were tuned on all
+  questions, so hold-out numbers are only clean for changes made after that.
+
 `--variants` re-runs retrieval for every question in three variants: accents
 stripped with the original case kept, all upper case, all lower case. It
 records per-variant retrieval metrics and a `parity` block (the delta of
@@ -45,8 +64,17 @@ doc_hit@5 and MRR vs the original). Target: no drop larger than 0.02.
 - **retrieval**: `retrieve()` per question; `doc_hit@{1,3,5,10}` (any expected
   rel path), `page_hit@k` (expected page/slide), MRR, latency, sliced by
   `language`, `category` and each tag. The metrics are also recorded on the
-  **pre-rerank fused list** (`aggregate_fused`), which is what the RRF tuning
-  in task 32 optimizes.
+  **whole pre-rerank fused list** (`aggregate_fused`), with two
+  candidate-recall metrics:
+  - `pool_hit`: an expected document is among the fused candidates at all;
+  - `window_hit`: it is among the candidates sent to the reranker
+    (`retrieval.rerank_top`, plus the hinted extras of
+    `retrieval.rerank.rerank_window`). The reranker can't rank first what it
+    never sees, so this is the metric fusion tuning should optimize.
+
+  The run ends with a funnel: the share of questions whose document was not
+  found, found but cut before the rerank, reranked but below rank 5, and in
+  the top 5.
 - **answers**: `answer()` per question; LLM judge (correctness /
   groundedness / completeness 0–2 + verdict, background priority),
   `current_version_precision` (share of cited sources that are current and not

@@ -42,6 +42,8 @@ FastAPI app as the JSON API (`mynotes serve`):
 - Document view: `/ui/documents/{id}` — extracted Markdown rendered
   server-side (`markdown_it`, raw HTML disabled, tables enabled), headings
   anchored as `sec-<slug>` (task 48's folding slug, mirrored in `chat.js`),
+  fenced code blocks wrapped in `.code-block[data-copy-code]` (`render._wrap_fences`;
+  indented blocks are not) and given a Copy button by `markdown.js`,
   tags grouped by source with Accept/Reject for proposed LLM tags (HTMX posts
   to `/v1/tags/{doc}/{tag}/accept|reject`, the `mynotes:tags-changed` event
   re-renders the chips), the supersedes chain and the snapshot history.

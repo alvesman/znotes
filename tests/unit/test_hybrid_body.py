@@ -145,3 +145,13 @@ def test_cli_since_parsing() -> None:
         _parse_since("2026")
     with pytest.raises(typer.BadParameter):
         _parse_since("not-a-date")
+
+
+def test_knn_k_widens_the_vector_search_but_never_below_size() -> None:
+    """knn_k sets the HNSW k; the body still asks for ``size`` hits, and k never drops below it."""
+    wide = build_hybrid_body("q", _VECTOR, SearchFilters(), size=50, knn_k=200)
+    narrow = build_hybrid_body("q", _VECTOR, SearchFilters(), size=50, knn_k=10)
+
+    assert wide["size"] == 50
+    assert wide["query"]["hybrid"]["queries"][0]["knn"]["embedding"]["k"] == 200
+    assert narrow["query"]["hybrid"]["queries"][0]["knn"]["embedding"]["k"] == 50

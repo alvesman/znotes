@@ -291,7 +291,7 @@ The saved earlier states of the document after edits: the version number, its da
 
 ### Content
 
-The document's text as mynotes extracted it, with headings, lists and tables. When you arrive from a citation, the page opens at the cited section. For PDFs, Word and other files this is the extracted text, not the original layout: use the open links in the header for the original.
+The document's text as mynotes extracted it, with headings, lists and tables. Code blocks written between triple backticks (```) have a **Copy** button in their top-right corner. When you arrive from a citation, the page opens at the cited section. For PDFs, Word and other files this is the extracted text, not the original layout: use the open links in the header for the original.
 
 ---
 
