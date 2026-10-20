@@ -95,6 +95,8 @@ Every page has the same menu bar at the top:
 
 Document pages have no menu entry: you reach them from search results, citations, reviews and the graph.
 
+On a phone the menu folds behind a **Menu** button at the top. The switch at the right end of the bar chooses the colour theme: **System** follows your device's light or dark setting, **Light** and **Dark** force one. The choice is remembered in that browser. Keyboard users can press Tab once on any page to reach a "Skip to content" link.
+
 ---
 
 ## 4. Chat: asking questions
@@ -105,7 +107,7 @@ Document pages have no menu entry: you reach them from search results, citations
 2. Type your question in the box at the bottom, for example *What is the deadline for the Alfa project?*
 3. Click **Ask**.
 
-Pressing **Enter** adds a new line to your question; it doesn't send it. Click **Ask** to send.
+Pressing **Enter** sends the question; **Shift+Enter** adds a new line. The question box stays at the bottom of the page while you scroll through earlier answers. Its options (old note versions, tags) sit under **Options** next to the **Ask** button; on a phone they start folded.
 
 The answer appears word by word as it is written. While it is being written, the **Ask** button is greyed out.
 
@@ -355,9 +357,9 @@ The knowledge graph is a map of the entities your notes mention and how they rel
 
 1. Click **Graph** in the menu bar.
 2. Type a name in the search box. Results appear after you pause typing; exact spelling isn't required.
-3. If several entities match, a list appears: click the one you mean.
+3. If several entities match (for example a project and a topic with the same name), a list appears: click the one you mean.
 
-You can also link straight to an entity: `http://127.0.0.1:8765/ui/graph?entity=Projeto%20Alfa`.
+You can also link straight to an entity by name, `http://127.0.0.1:8765/ui/graph?entity=Projeto%20Alfa`, or by its id, `...?entity=%23519` (`#519`).
 
 ### The entity card
 
@@ -449,7 +451,7 @@ How many files in your folders mynotes can't read (unsupported formats, such as 
 - **No login is needed** in the standard single-user setup. For that reason the web interface only accepts connections from the computer it runs on (`127.0.0.1`). Don't make it reachable from other computers unless whoever runs your installation has set up sign-in: anyone who can reach it can read your notes.
 - **mynotes never changes your notes.** The web interface reads them; all its own data (tags, reviews, versions) lives in its database.
 - **Your chats are kept** in the mynotes database (question, answer and sources) for the **History** page, until you delete them there.
-- **Your checkbox choices are remembered in your browser**, not on the server: Chat's **Include old notes versions** and Search's **include notes history** and **rerank** keep the state you last chose, in that browser only. Tags and file types are not remembered, so a new search never starts with hidden filters. Clearing the browser's site data brings back the defaults.
+- **Your checkbox choices and the colour theme are remembered in your browser**, not on the server: Chat's **Include old notes versions**, Search's **include notes history** and **rerank**, and the System/Light/Dark switch keep the state you last chose, in that browser only. Tags and file types are not remembered, so a new search never starts with hidden filters. Clearing the browser's site data brings back the defaults.
 - **Open in app** opens the file on the computer running mynotes. That is your computer in the standard setup.
 
 ---

@@ -17,8 +17,37 @@
     Risk: "#c94f4f",
     Metric: "#4f9ec9"
   };
+  /* Lighter variants for the dark theme, where the saturated light-theme colours look dull. */
+  var TYPE_COLORS_DARK = {
+    Project: "#7ea6e6",
+    Idea: "#ad97e6",
+    Person: "#e67ea6",
+    Organization: "#e6ad7e",
+    Technology: "#7ee6ad",
+    Concept: "#a6a6a6",
+    Decision: "#7ed6e6",
+    Requirement: "#e6de7e",
+    Milestone: "#bd7ee6",
+    Risk: "#e67e7e",
+    Metric: "#7ec3e6"
+  };
   var FALLBACK_COLOR = "#7c9ec9";
+  var FALLBACK_COLOR_DARK = "#a6c3e6";
   var EDGE_LABEL_MAX = 28;
+  var current = { container: null, graph: null };
+
+  function darkTheme() {
+    var theme = window.MynotesTheme;
+    if (theme) {
+      return theme.effective() === "dark";
+    }
+    return Boolean(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  }
+
+  function token(name, fallback) {
+    var value = getComputedStyle(document.documentElement).getPropertyValue(name);
+    return (value && value.trim()) || fallback;
+  }
 
   function el(tag, className, text) {
     var node = document.createElement(tag);
@@ -32,6 +61,9 @@
   }
 
   function colorFor(type) {
+    if (darkTheme()) {
+      return TYPE_COLORS_DARK[type] || FALLBACK_COLOR_DARK;
+    }
     return TYPE_COLORS[type] || FALLBACK_COLOR;
   }
 
@@ -69,6 +101,8 @@
   function buildElements(payload) {
     var elements = [];
     var entity = payload.entity || {};
+    var known = {};
+    known["e" + entity.id] = true;
     elements.push({
       data: {
         id: "e" + entity.id,
@@ -79,6 +113,7 @@
       }
     });
     (payload.neighbors || []).forEach(function (neighbor) {
+      known["e" + neighbor.id] = true;
       elements.push({
         data: {
           id: "e" + neighbor.id,
@@ -90,6 +125,9 @@
       });
     });
     (payload.edges || []).forEach(function (edge) {
+      if (!known["e" + edge.src] || !known["e" + edge.dst]) {
+        return; // cytoscape throws on an edge whose endpoint is not a node
+      }
       elements.push({
         data: {
           id: "r" + edge.relation_id,
@@ -112,7 +150,7 @@
         style: {
           "background-color": "data(color)",
           label: "data(label)",
-          color: getComputedStyle(document.body).getPropertyValue("--fg") || "#1c1c1c",
+          color: token("--fg", "#1c1c1c"),
           "font-size": 10,
           "text-valign": "bottom",
           "text-margin-y": 4
@@ -124,7 +162,7 @@
           width: 34,
           height: 34,
           "border-width": 2,
-          "border-color": getComputedStyle(document.body).getPropertyValue("--accent") || "#0b62c4"
+          "border-color": token("--accent", "#0b62c4")
         }
       },
       {
@@ -132,12 +170,12 @@
         style: {
           label: "data(label)",
           "font-size": 8,
-          "text-background-color": getComputedStyle(document.body).getPropertyValue("--bg") || "#fbfbfa",
+          "text-background-color": token("--bg", "#fbfbfa"),
           "text-background-opacity": 0.85,
           width: 1.5,
           "curve-style": "bezier",
           "target-arrow-shape": "triangle",
-          "line-color": "#8a8a86",
+          "line-color": token("--border-strong", "#8a8a86"),
           "line-style": "data(line-style)"
         }
       }
@@ -157,6 +195,8 @@
       style: cytoscapeStyle(),
       layout: { name: "cose", animate: false, randomize: true }
     });
+    current.container = container;
+    current.graph = graph;
     graph.on("tap", "node", function (event) {
       var id = event.target.id().slice(1);
       var name = event.target.data("label");
@@ -187,7 +227,8 @@
         container.dataset.entityId = payload.entity && payload.entity.id;
         renderGraph(container, payload);
       })
-      .catch(function () {
+      .catch(function (error) {
+        console.error("graph neighbourhood", error);
         container.textContent = "";
         container.appendChild(el("p", "empty", "The neighbourhood could not be loaded."));
       });
@@ -206,6 +247,18 @@
     }
     loadNeighbors(container, hops ? hops.value : "1");
   }
+
+  // The canvas keeps its colours when the theme changes: restyle and recolour the nodes.
+  document.addEventListener("mynotes:theme-changed", function () {
+    var graph = current.graph;
+    if (!graph || graph.destroyed() || !document.body.contains(current.container)) {
+      return;
+    }
+    graph.nodes().forEach(function (node) {
+      node.data("color", colorFor(node.data("type")));
+    });
+    graph.style(cytoscapeStyle());
+  });
 
   document.addEventListener("DOMContentLoaded", function () {
     init(document);

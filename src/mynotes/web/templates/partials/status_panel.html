@@ -1,11 +1,13 @@
 <div id="status-panel" hx-get="/ui/partials/status"
      hx-trigger="every 30s, mynotes:status-changed from:body" hx-swap="outerHTML">
-  <section class="status-section">
+  <section class="status-section status-section--wide">
     <h2>Roots</h2>
     {% set watchers = data.get("watchers", []) %}
     {% set last_scans = data.get("last_scans", []) %}
     {% if data.get("roots") %}
+    <div class="table-scroll">
     <table class="status-table">
+      <caption class="visually-hidden">Source roots</caption>
       <thead><tr><th>Root</th><th>Path</th><th>Watcher</th><th>Last scan</th></tr></thead>
       <tbody>
         {% for root in data.get("roots") %}
@@ -28,6 +30,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
     {% else %}
     <p class="empty">No source roots configured.</p>
     {% endif %}
@@ -90,10 +93,12 @@
     {% endif %}
   </section>
 
-  <section class="status-section">
+  <section class="status-section status-section--wide">
     <h2>Model endpoints</h2>
+    <div class="table-scroll">
     <table class="status-table">
-      <thead><tr><th>Process</th><th>Endpoint</th><th>State</th><th>Calls</th><th>p50 ms</th><th>p95 ms</th><th>Errors</th><th>Last error</th></tr></thead>
+      <caption class="visually-hidden">Model endpoints</caption>
+      <thead><tr><th>Process</th><th>Endpoint</th><th>State</th><th class="num">Calls</th><th class="num">p50 ms</th><th class="num">p95 ms</th><th class="num">Errors</th><th>Last error</th></tr></thead>
       <tbody>
         {% for snapshot in data.get("endpoints", []) %}
         {% if snapshot.get("error") %}
@@ -103,10 +108,10 @@
           <td>{{ snapshot.get("process") or "—" }}{% if snapshot.get("age_s") %} <span class="muted">({% if snapshot.get("age_s") >= 90 %}{{ (snapshot.get("age_s") / 60)|round|int }} min{% else %}{{ snapshot.get("age_s")|round|int }} s{% endif %} ago)</span>{% endif %}</td>
           <td>{{ snapshot.get("name") }}</td>
           <td>{{ snapshot.get("state") }}</td>
-          <td>{{ snapshot.get("calls") }}</td>
-          <td>{{ snapshot.get("p50_ms") if snapshot.get("p50_ms") is not none else "—" }}</td>
-          <td>{{ snapshot.get("p95_ms") if snapshot.get("p95_ms") is not none else "—" }}</td>
-          <td>{{ "%.1f"|format((snapshot.get("error_rate") or 0) * 100) }}%</td>
+          <td class="num">{{ snapshot.get("calls") }}</td>
+          <td class="num">{{ snapshot.get("p50_ms") if snapshot.get("p50_ms") is not none else "—" }}</td>
+          <td class="num">{{ snapshot.get("p95_ms") if snapshot.get("p95_ms") is not none else "—" }}</td>
+          <td class="num">{{ "%.1f"|format((snapshot.get("error_rate") or 0) * 100) }}%</td>
           <td class="cite-path">{{ snapshot.get("last_error") or "—" }}</td>
         </tr>
         {% endif %}
@@ -115,6 +120,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </section>
 
   <section class="status-section">

@@ -1,13 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Status · mynotes{% endblock %}
+{% block content_class %} content--wide{% endblock %}
 {% block content %}
 <h1>Status</h1>
 <div class="form-row">
   <button type="button" hx-post="/v1/scan" hx-swap="none">Scan now</button>
   <span class="muted">panel refreshes every 30 s</span>
 </div>
-<div id="status-panel" hx-get="/ui/partials/status"
-     hx-trigger="every 30s, mynotes:status-changed from:body" hx-swap="outerHTML">
-  {% include "partials/status_panel.html" %}
-</div>
+{% include "partials/status_panel.html" %}
 {% endblock %}

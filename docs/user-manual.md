@@ -460,7 +460,7 @@ cd ~/mynotes
 uv run mynotes serve
 ```
 
-Then open **http://127.0.0.1:8765/** in your browser. Leave the terminal open; press Ctrl+C there to stop the web interface. To use another port:
+Then open **http://127.0.0.1:8765/** in your browser. Leave the terminal open; press Ctrl+C there to stop the web interface. The pages work on a phone as well, and the switch at the top right chooses a light or dark theme or follows your system. To use another port:
 
 ```bash
 uv run mynotes serve --port 8800
@@ -762,7 +762,10 @@ uv run mynotes graph entities --type Person --limit 20
 uv run mynotes graph entity "Joana Ribeiro"
 uv run mynotes graph entity "Alfa" --type Project
 uv run mynotes graph entity "Alfa" --json
+uv run mynotes graph entity "#519"            # one entity by the id shown in the list
 ```
+
+A name that was merged into another entity opens the entity it was merged into.
 
 **Show what an entity is connected to** (up to 2 steps away by default):
 

@@ -3,18 +3,25 @@
 {% block head %}<script src="{{ asset('prefs.js') }}" defer></script>
 <script src="{{ asset('markdown.js') }}" defer></script>
 <script src="{{ asset('search.js') }}" defer></script>{% endblock %}
+{% block content_class %} content--wide{% endblock %}
 {% block content %}
 <h1>Search</h1>
-<form id="search-form" hx-post="/ui/partials/search" hx-target="#results"
+<div class="search-page">
+<form id="search-form" class="search-form" hx-post="/ui/partials/search" hx-target="#results"
       hx-indicator="#search-indicator">
-  <div class="form-row">
-    <input type="search" name="query" placeholder="Search… (inline #tag and in:folder work too)">
+  <div class="search-bar">
+    <label for="search-query" class="visually-hidden">Search</label>
+    <input type="search" id="search-query" name="query" placeholder="Search… (inline #tag and in:folder work too)">
     <button type="submit">Search</button>
-    <span id="search-indicator" class="htmx-indicator">Searching…</span>
+    <span id="search-indicator" class="htmx-indicator" role="status">Searching…</span>
   </div>
+  <aside class="search-filters">
+  <details class="panel filters" open data-collapse-narrow>
+  <summary>Filters</summary>
+  <div class="panel-body">
   <div class="form-row">
-    <label>Folder <input type="text" name="folder" placeholder="folder prefix"></label>
-    <label>Since <input type="month" name="since"></label>
+    <label class="field">Folder <input type="text" name="folder" placeholder="folder prefix"></label>
+    <label class="field">Since <input type="month" name="since"></label>
   </div>
   <fieldset>
     <legend>Formats</legend>
@@ -49,6 +56,10 @@
     <p class="empty">No tags yet.</p>
     {% endif %}
   </fieldset>
+  </div>
+  </details>
+  </aside>
 </form>
-<div id="results"></div>
+<div id="results" class="search-results"></div>
+</div>
 {% endblock %}

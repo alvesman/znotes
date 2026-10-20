@@ -83,10 +83,12 @@
     return actions;
   }
 
-  function citationNode(citation) {
+  var answerCount = 0;
+
+  function citationNode(citation, prefix) {
     var node = el("div", "citation");
     if (citation.n) {
-      node.id = "cite-" + citation.n;
+      node.id = prefix + citation.n;
       node.appendChild(el("span", "cite-n", "[" + citation.n + "] "));
     }
     node.appendChild(el("span", "cite-title", citation.title || citation.path));
@@ -134,16 +136,17 @@
       block.searched.hidden = false;
     } else if (event === "token") {
       block.raw += payload.text;
-      renderMarkdown(block.raw, block.answer);
+      renderMarkdown(block.raw, block.answer, { citePrefix: block.citePrefix });
     } else if (event === "sources") {
       (payload.citations || []).forEach(function (citation) {
-        block.citations.appendChild(citationNode(citation));
+        block.citations.appendChild(citationNode(citation, block.citePrefix));
       });
     } else if (event === "done") {
-      renderMarkdown(block.raw, block.answer);
+      renderMarkdown(block.raw, block.answer, { citePrefix: block.citePrefix });
       if (!payload.relevant) {
         block.status.textContent = "No relevant notes were found for this question.";
       }
+      block.live.textContent = "Answer ready.";
     } else if (event === "error") {
       block.status.textContent = payload.message || "The request failed. Please try again.";
     }
@@ -247,20 +250,30 @@
         filters.tags = tags;
       }
       questionInput.value = "";
+      answerCount += 1;
       var block = {
         root: el("article", "qa"),
+        // Each answer numbers its sources from [1]: the ids carry a per-answer prefix so a
+        // marker links to its own answer's source, not an earlier one's (History does the same).
+        citePrefix: "a" + answerCount + "-cite-",
         raw: "",
         searched: el("p", "searched muted"),
         answer: el("div", "answer md"),
         citations: el("div", "citations"),
-        status: el("p", "status")
+        status: el("p", "status"),
+        // Screen readers hear the status line and one "Answer ready" instead of every token
+        // of the streaming answer (the answer itself is not a live region).
+        live: el("p", "visually-hidden")
       };
+      block.status.setAttribute("role", "status");
+      block.live.setAttribute("role", "status");
       block.root.appendChild(el("p", "question", question));
       block.searched.hidden = true;
       block.root.appendChild(block.searched);
       block.root.appendChild(block.answer);
       block.root.appendChild(block.citations);
       block.root.appendChild(block.status);
+      block.root.appendChild(block.live);
       conversation.appendChild(block.root);
       button.disabled = true;
       ask(question, filters, block)

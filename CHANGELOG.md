@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.3.0 (2026-10-20)
+
+- **Web interface redesigned:** a cleaner, responsive layout that works on phones (the menu folds
+  behind a button, panels collapse, controls are touch-sized, tables scroll) and uses the width
+  of a desktop screen (search filters beside the results, the graph beside its entity card,
+  status cards in a grid). Chat's question box stays at the bottom of the page. Keyboard and
+  screen-reader fixes: skip link, visible focus, labels on every input, tab roles on Reviews.
+- **Theme switch:** choose **System**, **Light** or **Dark** at the top right; the choice is
+  remembered in the browser, and the graph recolours with it.
+- **Status page:** the panel no longer refreshes twice (its wrapper carried the same id as the
+  panel itself).
+- **Docs:** the web manual now says correctly that Enter sends a question and Shift+Enter adds a
+  line.
+
+- **Graph explorer:** a name shared by an entity and a duplicate that was merged into it opened a
+  list of two identical-looking entries that led nowhere. Lookups now resolve merged records to
+  the live entity (web UI, CLI, API and MCP); `graph unmerge` still finds the merged record. When
+  several entities really share a name, the list's links use the entity id (`#519`), which the
+  search box and `graph entity` also accept.
+- **Graph explorer:** well-connected entities showed "The neighbourhood could not be loaded". The
+  neighbours API returned the edges of the whole neighbourhood but only the 20 best neighbours, and
+  the drawing failed on an edge to an unlisted entity. It now returns only the edges between the
+  listed nodes, and the page skips any edge it can't draw.
+
 ## 0.2.0 (2026-10-19)
 
 - **Note pages:** code blocks written between triple backticks have a Copy button, as in Chat

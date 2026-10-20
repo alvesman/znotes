@@ -609,6 +609,35 @@ def test_borderline_pair_adjudicates_and_merges(env: Env, monkeypatch: pytest.Mo
     assert mention_documents(keep_id) == {_SYSTEM_PATH, _SYSTEM2_PATH}
 
 
+def test_merged_name_resolves_to_the_live_entity(env: Env, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A name shared by a record and its merged duplicate gives one lookup match.
+
+    After the merge both rows are called (nearly) the same; the graph page,
+    the API and the CLI must land on the live entity, not list two candidates
+    that look identical. ``graph unmerge`` still finds the merged record.
+    """
+    from mynotes.core import service
+    from mynotes.graph.store import find_entities
+
+    keep_id, drop_id = ingest_and_merge_borderline(env, monkeypatch)
+
+    with session_scope() as session:
+        by_old_name = find_entities(session, "Sistema Relatorio")
+        assert [entity.id for entity in by_old_name] == [keep_id]
+        assert [entity.id for entity in find_entities(session, "Sistema Relatorios")] == [keep_id]
+        with_merged = find_entities(session, "Sistema Relatorio", include_merged=True)
+        assert [entity.id for entity in with_merged] == [drop_id]  # the merged record itself
+
+    assert service.entity_card("Sistema Relatorio")["id"] == keep_id
+    assert service.entity_card(f"#{drop_id}")["id"] == drop_id  # explicit ids are never ambiguous
+    with pytest.raises(service.NotFound):
+        service.entity_card("#999999")
+
+    unmerged = CliRunner().invoke(app, ["graph", "unmerge", "Sistema Relatorio"])
+    assert unmerged.exit_code == 0, unmerged.output
+    assert session_get_status(drop_id) == "active"
+
+
 def test_unmerge_restores_both_and_records_distinct_pair(
     env: Env, monkeypatch: pytest.MonkeyPatch
 ) -> None:

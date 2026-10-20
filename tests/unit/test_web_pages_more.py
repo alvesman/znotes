@@ -400,8 +400,9 @@ def test_graph_entity_partial_renders_candidates_when_ambiguous(
     response = _client().get("/ui/partials/entity-panel", params={"q": "alfa"})
     assert response.status_code == 200, response.text
     assert "2 entities match" in response.text
-    assert 'href="/ui/graph?entity=Projeto%20Alfa"' in response.text
-    assert 'href="/ui/graph?entity=Projeto%20Alfa%20II"' in response.text
+    # candidates link by id: two candidates can share a name (a Project and a Concept)
+    assert 'href="/ui/graph?entity=%234">Projeto Alfa</a>' in response.text
+    assert 'href="/ui/graph?entity=%239">Projeto Alfa II</a>' in response.text
     assert_panel_fragment_only(response.text)
 
 
@@ -626,3 +627,142 @@ def test_help_link_rewriting_rules() -> None:
     assert 'href="https://repo/blob/main/deployment/README.md"' in html
     assert 'href="https://example.org/x"' in html
     assert 'href="https://repo/blob/main/docs/mcp.md"' in html
+
+
+def test_theme_script_runs_before_the_stylesheet() -> None:
+    """theme.js sets data-theme before the first paint: in <head>, before app.css, not deferred."""
+    client = _client()
+    served = client.get("/static/theme.js")
+    assert served.status_code == 200
+    assert "javascript" in served.headers["content-type"]
+    assert "mynotes.pref.theme" in served.text
+
+    html = client.get("/ui/chat").text
+    head = html.split("</head>", 1)[0]
+    script_at = head.index('<script src="/static/theme.js?v=')
+    assert script_at < head.index('href="/static/app.css?v=')
+    tag = head[script_at : head.index(">", script_at)]
+    assert "defer" not in tag and "async" not in tag
+
+
+def test_dark_theme_blocks_declare_the_same_tokens() -> None:
+    """The OS-preference block and the explicit-choice block of app.css must not drift apart."""
+    import re
+
+    css = (STATIC_DIR / "app.css").read_text(encoding="utf-8")
+
+    def tokens(block_start: str) -> dict[str, str]:
+        start = css.index(block_start)
+        body = css[start : css.index("}", start)]
+        return dict(re.findall(r"(--[\w-]+):\s*([^;]+);", body))
+
+    system_dark = tokens(':root:not([data-theme="light"]) {')
+    chosen_dark = tokens(':root[data-theme="dark"] {\n  --bg')
+    assert system_dark, "no dark tokens found"
+    assert system_dark == chosen_dark
+    light = tokens(":root {\n  color-scheme: light dark;")
+    assert set(system_dark) <= set(light), "every dark token needs a light default"
+
+
+def test_theme_switch_markup_on_every_page() -> None:
+    """A three-way System/Light/Dark control in the top bar, wired by ui.js."""
+    client = _client()
+    served = client.get("/static/ui.js")
+    assert served.status_code == 200 and "javascript" in served.headers["content-type"]
+    for path in ("/ui/chat", "/ui/help"):
+        html = client.get(path).text
+        assert 'src="/static/ui.js?v=' in html.split("</head>", 1)[0]
+        assert 'role="group" aria-label="Colour theme" data-theme-switch' in html
+        for choice in ("system", "light", "dark"):
+            assert f'<button type="button" data-theme-choice="{choice}" aria-pressed=' in html
+        assert html.count("data-theme-choice=") == 3
+        assert "data-persist" not in html.split("data-theme-switch", 1)[1].split("</nav>", 1)[0]
+
+
+def test_shell_markup_skip_link_menu_and_main(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("mynotes.core.chat_history.list_conversations", lambda principal: ([], 0))
+    response = _client().get("/ui/history")
+    if response.status_code != 200:
+        pytest.skip("history page needs a live backend here")
+    html = response.text
+    assert '<a class="skip-link" href="#main">' in html
+    assert '<nav class="topbar" aria-label="Main">' in html
+    assert '<a class="brand" href="/ui/chat">mynotes</a>' in html
+    assert (
+        '<button type="button" class="nav-toggle" aria-expanded="false" aria-controls="nav-links">'
+        in html
+    )
+    assert '<ul id="nav-links" class="nav-links">' in html
+    assert '<main id="main" class="content" tabindex="-1">' in html
+
+
+@pytest.mark.parametrize("path", ["/ui/chat", "/ui/search", "/ui/status", "/ui/help/web"])
+def test_pages_have_no_inline_style_or_script(path: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The CSP (style-src/script-src 'self') would block them, so none may exist."""
+    import re
+
+    monkeypatch.setattr(service, "search", lambda *args, **kwargs: None)
+    monkeypatch.setattr(service, "list_tags", lambda *args, **kwargs: [])
+    monkeypatch.setattr(service, "status", lambda *args, **kwargs: {"roots": [], "queue": {}})
+    response = _client().get(path)
+    if response.status_code != 200:
+        pytest.skip(f"{path} needs a live backend here ({response.status_code})")
+    html = response.text
+    assert "<style" not in html
+    assert ' style="' not in html
+    for tag in re.findall(r"<script[^>]*>", html):
+        assert 'src="/static/' in tag, tag
+
+
+def test_chat_and_search_have_labels_and_collapsible_panels(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _client()
+    chat = client.get("/ui/chat").text
+    assert '<label for="question" class="visually-hidden">' in chat
+    assert '<details class="panel options" open data-collapse-narrow>' in chat
+    assert (
+        chat.index('class="chat-options"')
+        < chat.index('id="conversation"')
+        < chat.index('id="question"')
+    )
+    assert "aria-live" not in chat  # the streaming answer is not a live region (chat.js announces)
+    monkeypatch.setattr(service, "list_tags", lambda *args, **kwargs: [])
+    search = client.get("/ui/search").text
+    assert '<main id="main" class="content content--wide" tabindex="-1">' in search
+    assert '<label for="search-query" class="visually-hidden">' in search
+    assert '<details class="panel filters" open data-collapse-narrow>' in search
+    assert (
+        search.index('class="search-bar"')
+        < search.index('class="search-filters"')
+        < search.index('id="results"')
+    )
+
+
+def test_status_panel_id_appears_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """status.html used to wrap the partial in a second #status-panel (the panel polled twice)."""
+    monkeypatch.setattr(service, "status", lambda *args, **kwargs: {"roots": [], "queue": {}})
+    html = _client().get("/ui/status").text
+    assert html.count('id="status-panel"') == 1
+    assert html.count('class="table-scroll"') >= 1
+
+
+def test_reviews_tabs_have_roles(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(service, "list_version_relations", lambda *args, **kwargs: [])
+    monkeypatch.setattr(service, "document_previews", lambda ids, **kwargs: {})
+    response = _client().get("/ui/reviews")
+    assert response.status_code == 200, response.text
+    html = response.text
+    assert html.count('role="tab" aria-selected=') == 3
+    assert html.count('role="tab" aria-selected="true"') == 1
+    assert '<div id="review-panel" role="tabpanel">' in html
+
+
+def test_css_uses_tokens_outside_the_token_section() -> None:
+    """Every colour lives in the token blocks: no hex or rgb() in the other rules."""
+    import re
+
+    css = (STATIC_DIR / "app.css").read_text(encoding="utf-8")
+    rules = css[css.index("/* 2. Reset and base */") :]
+    colours = re.findall(r":\s*[^;{}]*?(#[0-9a-fA-F]{3,8}\b|rgba?\()", rules)
+    assert colours == []

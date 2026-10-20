@@ -4,9 +4,25 @@
 {% block head %}<script src="{{ asset('prefs.js') }}" defer></script>
 <script src="{{ asset('markdown.js') }}" defer></script>
 <script src="{{ asset('chat.js') }}" defer></script>{% endblock %}
+{% block content_class %} content--wide{% endblock %}
 {% block content %}
 <h1>Chat</h1>
-<section id="conversation" aria-live="polite"{% if conversation_id %} data-conversation-id="{{ conversation_id }}"{% endif %}>
+<form id="ask-form" class="chat-page">
+<aside class="chat-options">
+  <details class="panel options" open data-collapse-narrow>
+    <summary>Options</summary>
+    <div class="panel-body">
+      <div class="form-row">
+        <label><input type="checkbox" id="history" name="history" value="1" checked data-persist="chat.history"> Include old notes versions</label>
+      </div>
+      <div class="form-row">
+        <label class="field">Tags <input type="text" id="tags" name="tags" placeholder="comma-separated"></label>
+      </div>
+    </div>
+  </details>
+</aside>
+<div class="chat-main">
+<section id="conversation"{% if conversation_id %} data-conversation-id="{{ conversation_id }}"{% endif %}>
   {%- for turn in turns %}
   <article class="qa resumed">
     <p class="question">{{ turn.question }} <span class="muted history-turn-when">{{ turn.when }}</span></p>
@@ -23,13 +39,14 @@
   {%- endfor %}
 </section>
 {% if turns %}<p class="muted resumed-note">Continuing a chat from History: new questions are added to it. <a href="/ui/chat">Start a new chat</a></p>{% endif %}
-<form id="ask-form">
+<div class="composer">
+  <label for="question" class="visually-hidden">Your question</label>
   <textarea id="question" name="question" rows="3" required
             placeholder="Ask a question about your notes…"></textarea>
-  <div class="form-row">
-    <label><input type="checkbox" id="history" name="history" value="1" checked data-persist="chat.history"> Include old notes versions</label>
-    <input type="text" id="tags" name="tags" placeholder="tags, comma-separated">
+  <div class="composer-row">
     <button type="submit" id="ask-button">Ask</button>
   </div>
+</div>
+</div>
 </form>
 {% endblock %}

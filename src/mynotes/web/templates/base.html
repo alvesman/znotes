@@ -6,22 +6,37 @@
   <meta name="htmx-config" content='{"includeIndicatorStyles":false}'>
   <title>{% block title %}mynotes{% endblock %}</title>
   <link rel="icon" href="/static/favicon.ico" sizes="16x16 32x32">
+  <script src="{{ asset('theme.js') }}"></script>
   <link rel="stylesheet" href="{{ asset('app.css') }}">
   <script src="/static/htmx-2.0.11.min.js" defer></script>
+  <script src="{{ asset('ui.js') }}" defer></script>
   {% block head %}{% endblock %}
 </head>
 <body data-can-open-files="{{ 'true' if can_open_files else 'false' }}">
-  <nav class="topbar">
-    <span class="brand">mynotes</span>
-    <a href="/ui/chat"{% if nav == "chat" %} aria-current="page"{% endif %}>Chat</a>
-    <a href="/ui/search"{% if nav == "search" %} aria-current="page"{% endif %}>Search</a>
-    <a href="/ui/history"{% if nav == "history" %} aria-current="page"{% endif %}>History</a>
-    <a href="/ui/reviews"{% if nav == "reviews" %} aria-current="page"{% endif %}>Reviews</a>
-    <a href="/ui/graph"{% if nav == "graph" %} aria-current="page"{% endif %}>Graph</a>
-    <a href="/ui/status"{% if nav == "status" %} aria-current="page"{% endif %}>Status</a>
-    <a href="/ui/help"{% if nav == "help" %} aria-current="page"{% endif %}>Help</a>
-  </nav>
-  <main class="content">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="topbar-wrap">
+    <nav class="topbar" aria-label="Main">
+      <a class="brand" href="/ui/chat">mynotes</a>
+      <button type="button" class="nav-toggle" aria-expanded="false" aria-controls="nav-links">Menu</button>
+      <ul id="nav-links" class="nav-links">
+        <li><a href="/ui/chat"{% if nav == "chat" %} aria-current="page"{% endif %}>Chat</a></li>
+        <li><a href="/ui/search"{% if nav == "search" %} aria-current="page"{% endif %}>Search</a></li>
+        <li><a href="/ui/history"{% if nav == "history" %} aria-current="page"{% endif %}>History</a></li>
+        <li><a href="/ui/reviews"{% if nav == "reviews" %} aria-current="page"{% endif %}>Reviews</a></li>
+        <li><a href="/ui/graph"{% if nav == "graph" %} aria-current="page"{% endif %}>Graph</a></li>
+        <li><a href="/ui/status"{% if nav == "status" %} aria-current="page"{% endif %}>Status</a></li>
+        <li><a href="/ui/help"{% if nav == "help" %} aria-current="page"{% endif %}>Help</a></li>
+      </ul>
+      <div class="topbar-tools">
+        <div class="theme-switch" role="group" aria-label="Colour theme" data-theme-switch>
+          <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
+          <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
+          <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
+        </div>
+      </div>
+    </nav>
+  </header>
+  <main id="main" class="content{% block content_class %}{% endblock %}" tabindex="-1">
     {% block content %}{% endblock %}
   </main>
   <footer class="site-footer muted">

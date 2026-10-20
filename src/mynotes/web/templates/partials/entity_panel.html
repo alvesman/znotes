@@ -4,7 +4,7 @@
 <ul class="candidate-list">
   {% for candidate in panel.candidates %}
   <li>
-    <a href="/ui/graph?entity={{ candidate.name|urlencode }}">{{ candidate.name }}</a>
+    <a href="/ui/graph?entity={{ ("#" ~ candidate.id)|urlencode }}">{{ candidate.name }}</a>
     <span class="muted">{{ candidate.type }}</span>
   </li>
   {% endfor %}
@@ -37,7 +37,7 @@
   </p>
   {% endif %}
 </section>
-<div class="form-row">
+<div class="form-row graph-controls">
   <label for="graph-hops">Hops</label>
   <select id="graph-hops">
     <option value="1" selected>1</option>

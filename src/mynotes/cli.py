@@ -1759,11 +1759,30 @@ def graph_extract_status(
     )
 
 
-def _entity_ref_id(session: Any, ref: str) -> int | None:
-    """Resolve one entity reference to a single id, printing candidates otherwise."""
+def _entity_ref_id(session: Any, ref: str, *, merged_only: bool = False) -> int | None:
+    """Resolve one entity reference (a name, or ``#<id>``) to a single id.
+
+    Prints the candidates when the name is ambiguous. ``merged_only`` looks
+    among the merged records (``graph unmerge``), where a live entity and its
+    merged duplicate usually share the name.
+    """
+    from mynotes.core.service import entity_id_ref
+    from mynotes.db.models import KgEntity
     from mynotes.graph.store import find_entities
 
-    matches = find_entities(session, ref)
+    explicit_id = entity_id_ref(ref)
+    if explicit_id is not None:
+        if session.get(KgEntity, explicit_id) is None:
+            console.print(f"[red]No entity matches {ref!r}.[/]")
+            return None
+        return explicit_id
+    matches = find_entities(session, ref, include_merged=merged_only)
+    if merged_only:
+        merged = [entity for entity in matches if entity.status == "merged"]
+        if matches and not merged:
+            console.print(f"[red]{ref!r} matches no merged entity; nothing to unmerge.[/]")
+            return None
+        matches = merged
     if len(matches) == 1:
         return int(matches[0].id)
     if not matches:
@@ -2072,7 +2091,7 @@ def graph_unmerge(
     from mynotes.graph.store import unmerge_entity
 
     with session_scope() as session:
-        drop_id = _entity_ref_id(session, name)
+        drop_id = _entity_ref_id(session, name, merged_only=True)
         if drop_id is None:
             raise typer.Exit(1)
         keep_id = unmerge_entity(session, drop_id)

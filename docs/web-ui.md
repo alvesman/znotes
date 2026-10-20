@@ -57,8 +57,10 @@ FastAPI app as the JSON API (`mynotes serve`):
   which re-render the tab. The tab partials re-render on the
   `mynotes:versions-changed` / `mynotes:tags-changed` events that those API
   responses carry as `HX-Trigger` headers.
-- Graph explorer: `/ui/graph?entity=REF` — entity search box (HTMX lookup),
-  entity card (summary, aliases, current attribute values), a Cytoscape
+- Graph explorer: `/ui/graph?entity=REF` — entity search box (HTMX lookup;
+  `REF` is a name, or `#<id>`; `graph/store.find_entities` resolves merged
+  records to the live entity, and ambiguity candidates link by id since two
+  can share a name), entity card (summary, aliases, current attribute values), a Cytoscape
   neighbourhood view fed by `/v1/graph/entities/{ref}/neighbors?hops=N`
   (nodes colored by type, edges labeled with the relation type, non-active
   edges dashed, edge click shows the evidence documents) and a dated timeline.
@@ -74,12 +76,36 @@ FastAPI app as the JSON API (`mynotes serve`):
   anchors are rewritten to them, links between the manuals become Help tabs, and other
   relative links point at the repository. `DOCS_DIR` is the repo's `docs/` folder
   (`/app/docs` in the Docker image, which copies it).
-- Static assets: `/static/app.css`, `/static/markdown.js`, `/static/chat.js`,
-  `/static/search.js`, `/static/history.js`, `/static/prefs.js`,
+- Static assets: `/static/app.css`, `/static/theme.js`, `/static/ui.js`, `/static/markdown.js`,
+  `/static/chat.js`, `/static/search.js`, `/static/history.js`, `/static/prefs.js`,
   `/static/graph.js` and the vendored releases below, referenced through the
   `asset()` template global, which appends the file's mtime as `?v=` so a changed
   script or stylesheet is never served from the browser cache. There is no CDN
   and no inline script/style (the CSP forbids them).
+- Layout and styling: `app.css` is one file in numbered sections (tokens, base,
+  shell, forms, then one per page); layouts use CSS grid with two breakpoints,
+  `max-width: 48rem` (phones: the menu folds, panels collapse, touch-sized
+  controls) and `min-width: 64rem` (search and graph in two columns, status in
+  a card grid); pages opt into the wide column with
+  `{% block content_class %} content--wide{% endblock %}`.
+- Theme: `app.css` section 1 holds every design token (colours, spacing, radii,
+  type scale) as custom properties on `:root`; the dark values are declared twice,
+  under `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) }`
+  (the OS preference, used when nothing was chosen) and under
+  `:root[data-theme="dark"]` (an explicit choice); a unit test keeps the two
+  blocks identical. `theme.js` runs in `<head>` before the stylesheet, without
+  `defer`, and sets `data-theme` on `<html>` from `localStorage`
+  (`mynotes.pref.theme`, `"light"` or `"dark"`; absent means system) so the page
+  never paints in the wrong theme; it also adds `class="js"` to `<html>` for
+  progressive enhancement. `window.MynotesTheme.set(choice)` applies and
+  remembers a choice and dispatches `mynotes:theme-changed` on `document`
+  (`detail: {choice, effective}`); scripts that draw with their own colours
+  (`graph.js`) listen to it. `ui.js` (deferred, every page) wires the switch,
+  the phone menu button (`.nav-toggle[aria-expanded]` before `#nav-links`),
+  the panels that collapse on phones (`details[data-collapse-narrow]`, open in
+  the HTML so they work without JS) and the tab state on Reviews. No `<meta name="color-scheme">`: the `color-scheme`
+  declarations in the stylesheet follow the chosen theme, a meta tag would fix
+  one value.
 
 ## Vendored HTMX
 

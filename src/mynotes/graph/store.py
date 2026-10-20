@@ -339,15 +339,55 @@ def list_entities(
 
 
 def find_entities(
-    session: Session, ref: str, type: str | None = None, limit: int = 20
+    session: Session,
+    ref: str,
+    type: str | None = None,
+    limit: int = 20,
+    *,
+    include_merged: bool = False,
 ) -> list[KgEntity]:
     """Resolve a name reference to candidate entities (PLAN.md §6.1 lookup).
 
     Tries the exact ``canonical_name`` first, then the normalized name or any
     alias, then trigram similarity on ``norm_name``; the first step with hits
-    wins. Searches the workspace's active and merged entities (merged ones are
-    needed by ``graph unmerge``), optionally filtered by type.
+    wins. Searches the workspace's active and merged entities, optionally
+    filtered by type. A merged entity is returned as the live entity it was
+    merged into (a name only its old record carries still resolves), so a
+    name shared by a record and its merged duplicate gives one match; with
+    ``include_merged`` the merged records are returned as they are, which
+    ``graph unmerge`` needs.
     """
+    matches = _find_entity_rows(session, ref, type, limit)
+    if include_merged:
+        return matches
+    live: list[KgEntity] = []
+    seen: set[int] = set()
+    for entity in matches:
+        target = entity if entity.status == "active" else _live_entity(session, entity)
+        if target is not None and target.id not in seen:
+            seen.add(int(target.id))
+            live.append(target)
+    return live
+
+
+def _live_entity(session: Session, entity: KgEntity) -> KgEntity | None:
+    """The active entity at the end of ``entity``'s ``merged_into_id`` chain, or None."""
+    current = entity
+    for _ in range(_MAX_MERGE_HOPS):
+        if current.merged_into_id is None:
+            return current if current.status == "active" else None
+        current = session.get(KgEntity, int(current.merged_into_id))
+        if current is None:
+            return None
+    logger.warning("merged_into chain from entity %s does not terminate", entity.id)
+    return None
+
+
+_MAX_MERGE_HOPS = 20
+
+
+def _find_entity_rows(session: Session, ref: str, type: str | None, limit: int) -> list[KgEntity]:
+    """The raw lookup of :func:`find_entities`: active and merged rows, first step with hits."""
     cleaned = ref.strip()
     if not cleaned:
         return []

@@ -4,14 +4,16 @@
 {% if CYTOSCAPE_SRC %}<script src="{{ CYTOSCAPE_SRC }}" defer></script>{% endif %}
 <script src="{{ asset('graph.js') }}" defer></script>
 {% endblock %}
+{% block content_class %} content--wide{% endblock %}
 {% block content %}
 <h1>Graph explorer</h1>
-<div class="form-row">
+<div class="form-row search-bar">
+  <label for="entity-q" class="visually-hidden">Find an entity</label>
   <input type="search" name="q" id="entity-q" value="{{ q }}" placeholder="Find an entity…"
          hx-get="/ui/partials/entity-panel" hx-target="#entity-panel"
          hx-trigger="input changed delay:400ms, search" hx-include="this"
          hx-indicator="#entity-indicator">
-  <span id="entity-indicator" class="htmx-indicator">Searching…</span>
+  <span id="entity-indicator" class="htmx-indicator" role="status">Searching…</span>
 </div>
 <div id="entity-panel">
   {% include "partials/entity_panel_body.html" %}

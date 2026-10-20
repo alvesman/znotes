@@ -991,6 +991,14 @@ def filter_graph_by_acl(
     return _filter_subgraph_by_acl(session, sub, acl_prefixes)
 
 
+def entity_id_ref(ref: str) -> int | None:
+    """The id of a ``#<id>`` entity reference, or None for a name."""
+    cleaned = ref.strip()
+    if cleaned.startswith("#") and cleaned[1:].isdigit():
+        return int(cleaned[1:])
+    return None
+
+
 def _entity_candidates(entities: Sequence[Any]) -> list[dict[str, Any]]:
     return [
         {"id": int(entity.id), "name": entity.canonical_name, "type": entity.type}
@@ -999,12 +1007,20 @@ def _entity_candidates(entities: Sequence[Any]) -> list[dict[str, Any]]:
 
 
 def _resolve_entity(session: Session, ref: str) -> int:
-    """Resolve an entity name reference to one id.
+    """Resolve an entity reference (a name, or ``#<id>``) to one id.
+
+    ``#<id>`` names an entity by its id and is never ambiguous: the web UI's
+    candidate links use it, since two candidates can share a name.
 
     Raises:
         NotFound: When nothing matches.
         Ambiguous: When several entities match (with candidates).
     """
+    explicit_id = entity_id_ref(ref)
+    if explicit_id is not None:
+        if session.get(KgEntity, explicit_id) is None:
+            raise NotFound(f"no entity matches {ref!r}")
+        return explicit_id
     matches = find_entities(session, ref)
     if len(matches) == 1:
         return int(matches[0].id)
@@ -1143,8 +1159,9 @@ def entity_neighbors(ref: str, hops: int = 1, *, principal: Principal = LOCAL) -
         ``hops``, the ``neighbors`` list (``id``, ``name``, ``type``, ``score``,
         ``types``), at most 20 entries, and the ``edges`` list (``src``, ``dst``,
         ``relation_id``, ``type``, ``attribute``, ``value``, ``status``,
-        ``evidence`` documents and ``evidence_count``) for the graph explorer
-        (task 48).
+        ``evidence`` documents and ``evidence_count``) among the returned
+        nodes only, for the graph explorer (task 48): an edge to an entity
+        that is not listed can't be drawn.
 
     Raises:
         NotFound: When nothing matches.
@@ -1169,6 +1186,7 @@ def entity_neighbors(ref: str, hops: int = 1, *, principal: Principal = LOCAL) -
             for neighbour_id, score in sorted(scores.items(), key=lambda item: (-item[1], item[0]))
             if neighbour_id != entity_id
         ][:20]
+        shown = {entity_id, *(neighbour["id"] for neighbour in neighbors)}
         return {
             "entity": {
                 "id": entity_id,
@@ -1177,7 +1195,9 @@ def entity_neighbors(ref: str, hops: int = 1, *, principal: Principal = LOCAL) -
             },
             "hops": max(1, hops),
             "neighbors": neighbors,
-            "edges": _subgraph_edge_views(session, sub, principal.acl_prefixes),
+            "edges": _subgraph_edge_views(
+                session, edges_among(sub.edges, shown), principal.acl_prefixes
+            ),
         }
 
 
@@ -1194,16 +1214,25 @@ _MAX_EDGE_EVIDENCE = 5
 """Evidence documents listed per edge in the graph explorer."""
 
 
+def edges_among(
+    edges: Sequence[tuple[int, int, int, float]], node_ids: set[int]
+) -> list[tuple[int, int, int, float]]:
+    """The subgraph edges whose both endpoints are in ``node_ids``, in order."""
+    return [edge for edge in edges if edge[0] in node_ids and edge[1] in node_ids]
+
+
 def _subgraph_edge_views(
-    session: Session, sub: Subgraph, acl_prefixes: Sequence[str] | None
+    session: Session,
+    edges: Sequence[tuple[int, int, int, float]],
+    acl_prefixes: Sequence[str] | None,
 ) -> list[dict[str, Any]]:
-    """The subgraph's edges with relation metadata and evidence documents."""
-    if not sub.edges:
+    """Subgraph edges (``(src, dst, relation_id, weight)``) with relation metadata and evidence."""
+    if not edges:
         return []
     relations = {
         int(relation.id): relation
         for relation in session.execute(
-            select(KgRelation).where(KgRelation.id.in_([edge[2] for edge in sub.edges]))
+            select(KgRelation).where(KgRelation.id.in_([edge[2] for edge in edges]))
         ).scalars()
     }
     evidence: dict[int, list[dict[str, Any]]] = {}
@@ -1219,7 +1248,7 @@ def _subgraph_edge_views(
         .join(Chunk, Chunk.id == KgRelationEvidence.chunk_id)
         .join(Document, Document.id == Chunk.document_id)
         .outerjoin(File, File.id == Document.current_file_id)
-        .where(KgRelationEvidence.relation_id.in_([edge[2] for edge in sub.edges]))
+        .where(KgRelationEvidence.relation_id.in_([edge[2] for edge in edges]))
         .order_by(KgRelationEvidence.id)
     ).all():
         if acl_prefixes is not None and not (rel_path and _path_allowed(rel_path, acl_prefixes)):
@@ -1231,13 +1260,13 @@ def _subgraph_edge_views(
         evidence.setdefault(int(relation_id), []).append(
             {"document_id": int(document_id), "title": title, "path": rel_path or ""}
         )
-    edges: list[dict[str, Any]] = []
-    for src, dst, relation_id, _weight in sub.edges:
+    views: list[dict[str, Any]] = []
+    for src, dst, relation_id, _weight in edges:
         relation = relations.get(relation_id)
         if relation is None:
             continue
         documents = evidence.get(relation_id, [])
-        edges.append(
+        views.append(
             {
                 "src": int(src),
                 "dst": int(dst),
@@ -1250,7 +1279,7 @@ def _subgraph_edge_views(
                 "evidence_count": len(documents),
             }
         )
-    return edges
+    return views
 
 
 def entity_attributes(entity_id: int, *, principal: Principal = LOCAL) -> list[AttributeValue]:
