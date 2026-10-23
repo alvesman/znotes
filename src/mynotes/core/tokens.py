@@ -2,9 +2,10 @@
 
 A token is ``mn_`` plus 43 URL-safe characters, shown once at creation; only
 its sha256 is stored (``api_token.token_hash``). Scopes decide what it may do:
-``ingest:<root>`` feeds one remote root (an agent), ``web`` gives a person
-read and review access to what their ACL grants allow, ``admin`` the admin
-actions. The principal built from a token can never open files in OS apps.
+``ingest:<root>`` feeds one remote root (an agent; the root is created for
+the token's user when it does not exist yet), ``web`` gives a person read and
+review access to what their ACL grants allow, ``admin`` the admin actions.
+The principal built from a token can never open files in OS apps.
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ import hashlib
 import logging
 import secrets
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select, update
@@ -47,6 +48,8 @@ class TokenInfo:
     created_at: datetime
     last_used_at: datetime | None
     revoked_at: datetime | None
+    created_roots: tuple[str, ...] = ()
+    """Remote roots ``create_token`` created for the ``ingest:`` scopes (not stored)."""
 
 
 def looks_like_token(value: str) -> bool:
@@ -87,23 +90,15 @@ def create_token(principal: str, name: str, scopes: Sequence[str]) -> tuple[str,
     if not cleaned:
         raise ValueError("at least one scope is required (ingest:<root>, web or admin)")
     workspace_id = _workspace_id()
+    created_roots: list[str] = []
+    for scope in cleaned:
+        if scope in (WEB_SCOPE, ADMIN_SCOPE):
+            continue
+        if not scope.startswith(INGEST_SCOPE):
+            raise ValueError(f"unknown scope {scope!r}")
+        if _ensure_remote_root(workspace_id, scope[len(INGEST_SCOPE) :], principal):
+            created_roots.append(scope[len(INGEST_SCOPE) :])
     with session_scope() as session:
-        for scope in cleaned:
-            if scope in (WEB_SCOPE, ADMIN_SCOPE):
-                continue
-            if not scope.startswith(INGEST_SCOPE):
-                raise ValueError(f"unknown scope {scope!r}")
-            root_name = scope[len(INGEST_SCOPE) :]
-            kind = session.execute(
-                select(SourceRoot.kind).where(
-                    SourceRoot.workspace_id == workspace_id, SourceRoot.name == root_name
-                )
-            ).scalar_one_or_none()
-            if kind != "remote":
-                raise ValueError(
-                    f"{root_name!r} is not a remote root; create it with "
-                    "'mynotes root add <name> --remote --owner <user>'"
-                )
         secret = generate_secret()
         row = ApiToken(
             workspace_id=workspace_id,
@@ -117,7 +112,38 @@ def create_token(principal: str, name: str, scopes: Sequence[str]) -> tuple[str,
         session.flush()
         info = _info(row)
     logger.info("created token %s (%s) for %s with scopes %s", info.id, name, principal, cleaned)
-    return secret, info
+    return secret, replace(info, created_roots=tuple(created_roots))
+
+
+def _ensure_remote_root(workspace_id: int, root_name: str, owner: str) -> bool:
+    """A remote root for an ``ingest:`` scope, created for ``owner`` when it does not exist.
+
+    Returns:
+        True when the root was created now.
+
+    Raises:
+        ValueError: When the name belongs to a local root, or to a remote root
+            owned by someone else.
+    """
+    from mynotes.core import roots
+
+    with session_scope() as session:
+        row = session.execute(
+            select(SourceRoot.kind, SourceRoot.owner).where(
+                SourceRoot.workspace_id == workspace_id, SourceRoot.name == root_name
+            )
+        ).first()
+    if row is None:
+        roots.add_remote_root(root_name, owner)
+        return True
+    kind, root_owner = row
+    if kind != "remote":
+        raise ValueError(f"{root_name!r} is a local folder of this server, not a root agents feed")
+    if root_owner and root_owner != owner:
+        raise ValueError(
+            f"root {root_name!r} belongs to {root_owner}; a token for {owner} cannot feed it"
+        )
+    return False
 
 
 def verify_token(secret: str) -> TokenInfo | None:

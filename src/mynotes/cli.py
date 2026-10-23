@@ -2328,7 +2328,8 @@ def root_add(
         raise typer.Exit(1) from exc
     console.print(
         f"[green]Created remote root '{name}' (id {root_id}) for {owner}; read access granted "
-        f"under '{name}'.[/] Next: mynotes token create --user {owner} --root {name}"
+        f"under '{name}'.[/] Next: mynotes token create --user {owner} --root {name} "
+        "(which also creates a missing root by itself)"
     )
 
 
@@ -2381,7 +2382,7 @@ def token_create(
     user: str = typer.Option(..., "--user", help="The person the token acts as."),
     name: str = typer.Option("default", "--name", help="A label (e.g. the machine's name)."),
     root: list[str] | None = typer.Option(  # noqa: B008
-        None, "--root", help="Remote root(s) the token's agent may feed (repeatable)."
+        None, "--root", help="Remote root(s) the agent may feed (repeatable); created if missing."
     ),
     web: bool = typer.Option(False, "--web", help="Sign-in to the web UI and read access."),
     admin: bool = typer.Option(False, "--admin", help="Admin actions (implies --web)."),
@@ -2400,6 +2401,10 @@ def token_create(
     except (ValueError, NotFound) as exc:
         console.print(f"[red]{exc}[/]")
         raise typer.Exit(1) from exc
+    for created in info.created_roots:
+        console.print(
+            f"[green]Created remote root '{created}' for {user} (read access granted).[/]"
+        )
     console.print(
         f"[green]Token {info.id} ({info.name}) for {user}, scopes: {', '.join(info.scopes)}[/]"
     )

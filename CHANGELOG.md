@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0rc2 (2026-10-23, preview of server mode)
+
+- **Server mode:** `mynotes token create --root NAME` creates the remote root for the token's user
+  when it does not exist yet; `deployment/server` publishes the web port (`MYNOTES_WEB_BIND`) and
+  makes Caddy optional (`--profile tls`) for hosts with their own TLS proxy; agents must run the
+  server's version.
+
 ## 0.4.0rc1 (2026-10-23, preview of server mode)
 
 - **Server mode:** one mynotes server for several people, each feeding their notes from their own

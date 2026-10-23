@@ -1008,8 +1008,7 @@ Your notes are never touched.
 mynotes can also run as one **server** for several people. The server (PostgreSQL, OpenSearch, the worker and the web interface, in Docker) never sees a notes folder: on each person's machine a small **agent** watches their folder and uploads the files, and the server keeps a copy, indexes it and shows each person only their own notes. People sign in to the web interface with a personal token. The setup is described in [deployment/server/README.md](../deployment/server/README.md); in short, the administrator runs on the server:
 
 ```bash
-mynotes root add alice-notes --remote --owner alice        # a root fed by alice's agent
-mynotes token create --user alice --name laptop --root alice-notes   # her agent's token
+mynotes token create --user alice --name laptop --root alice-notes   # her agent's token; creates the root
 mynotes token create --user alice --name web --web                   # her sign-in token
 mynotes token create --user admin --name me --admin                  # your own
 mynotes root list                                          # roots and when each agent was last seen
