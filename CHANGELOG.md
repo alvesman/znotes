@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0rc5 (2026-10-23, preview of server mode)
+
+- **Knowledge graph:** the output cap of an extraction call goes from 3000 to 8000 tokens, and the
+  prompt asks for compact JSON, short descriptions and quotes of at most 15 words, with a soft cap
+  of 30 entities and 40 relations per passage. On a corpus where the model pretty-printed long
+  quotes, passages of a few hundred tokens ran past the old cap even after splitting.
+
 ## 0.4.0rc4 (2026-10-23, preview of server mode)
 
 - **Knowledge graph:** a section group whose extraction answer does not parse (usually a dense

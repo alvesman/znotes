@@ -49,7 +49,7 @@ _MAX_GROUP_TOKENS = 1500
 _MIN_GROUP_TOKENS = 40
 _BOILERPLATE_DOTS_SHARE = 0.3
 _MAX_KNOWN_ENTITIES = 50
-_EXTRACT_MAX_TOKENS = 3000
+_EXTRACT_MAX_TOKENS = 8000
 _MAX_SPLIT_DEPTH = 2
 _ERROR_CHARS = 500
 _MAX_ENTITIES = 40
@@ -378,6 +378,10 @@ def _system_prompt() -> str:
     Rule 7 (no bare-date entities) is also enforced at resolution time by
     :func:`mynotes.graph.dates.fold_dates`, so adding it did not bump
     ``EXTRACTOR_VERSION``: cached and new extractions give the same graph.
+    Rules 8 and 9 (brevity, a soft cap on the counts) only change how much the
+    model writes, not what the graph holds, and did not bump it either: a
+    model that pretty-printed 300-character quotes ran past the output cap on
+    passages of a few hundred tokens.
     """
     entity_lines = "\n".join(f"- {name}: {_ENTITY_DEFINITIONS[name]}" for name in ENTITY_TYPES)
     relation_lines = "\n".join(
@@ -402,6 +406,10 @@ def _system_prompt() -> str:
         "6. Reply only with JSON for the schema.\n"
         "7. A bare date, month or year is never an entity: put it in `attribute`/`value` "
         "of the relation (e.g. scheduled_for with attribute `deadline`).\n"
+        "8. Be brief: `description` is one short sentence at most, `quote` at most 15 words, "
+        "and the JSON is written compactly, without indentation or line breaks.\n"
+        "9. Keep the entities and relations that matter for the notes, at most 30 entities and "
+        "40 relations for a passage; skip trivia.\n"
         "\n"
         f"{_JSON_SHAPE}"
     )

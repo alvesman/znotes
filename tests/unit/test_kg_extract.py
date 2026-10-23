@@ -223,6 +223,8 @@ def test_prompt_contains_context_and_known_entities() -> None:
     assert all(entity_type in system for entity_type in ENTITY_TYPES)
     assert all(relation_type in system for relation_type in RELATION_TYPES)
     assert "Only facts stated in the text." in system
+    assert "without indentation or line breaks" in system
+    assert "at most 30 entities and 40 relations" in system
     assert "Plano Alfa" in user
     assert "projects/alfa/plano.md" in user
     assert "2026-09-01" in user
