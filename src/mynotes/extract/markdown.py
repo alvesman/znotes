@@ -14,6 +14,7 @@ import re
 from pathlib import Path
 
 import frontmatter
+import yaml
 from markdown_it import MarkdownIt
 from markdown_it.token import Token
 
@@ -68,6 +69,21 @@ def _read_text(path: Path, warnings: list[str]) -> str:
         return raw.decode("utf-8", errors="replace")
 
 
+def _split_frontmatter(text: str, warnings: list[str]) -> tuple[dict, str]:
+    """Front matter and body; a leading ``---`` block that is not valid YAML stays text.
+
+    Obsidian notes may start with a horizontal rule, or carry ``%% comments %%``
+    or templating inside the block; python-frontmatter then raises a YAML
+    error. Such a note is extracted whole, with a warning, rather than failing.
+    """
+    try:
+        post = frontmatter.loads(text)
+    except yaml.YAMLError as exc:
+        warnings.append(f"front matter is not valid YAML, kept as text: {exc}".splitlines()[0])
+        return {}, text
+    return dict(post.metadata), post.content
+
+
 class MarkdownExtractor:
     """Extractor for Markdown notes (``.md``/``.markdown``)."""
 
@@ -87,10 +103,9 @@ class MarkdownExtractor:
         """
         warnings: list[str] = []
         text = _read_text(path, warnings)
-        post = frontmatter.loads(text)
-        meta = dict(post.metadata)
+        meta, content = _split_frontmatter(text, warnings)
 
-        blocks, links = markdown_to_blocks(post.content)
+        blocks, links = markdown_to_blocks(content)
         document = IRDocument(
             blocks=blocks,
             frontmatter=meta,

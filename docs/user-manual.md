@@ -919,6 +919,20 @@ uv run mynotes maintenance run --dry-run    # report only
 uv run mynotes maintenance run
 ```
 
+### Retrying failed extractions
+
+A file whose extraction failed (the status page counts it under *failed*) is not retried on its
+own: the scanner only queues new and changed files. After an update that fixes an extractor, queue
+those files again:
+
+```bash
+uv run mynotes maintenance retry-extract --dry-run    # how many would be retried
+uv run mynotes maintenance retry-extract
+```
+
+The worker then extracts them in the background. In server mode run it through the worker
+container: `docker compose exec worker mynotes maintenance retry-extract`.
+
 ### Backups
 
 ```bash

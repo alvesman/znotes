@@ -2221,6 +2221,34 @@ def maintenance_run(
     console.print(table)
 
 
+@maintenance_app.command("retry-extract")
+def maintenance_retry_extract(
+    dry_run: bool = typer.Option(False, "--dry-run", help="Count the failed versions only."),
+) -> None:
+    """Queue extraction again for the documents whose last extraction failed.
+
+    Use it after an update that fixes an extractor: the scanner alone never
+    retries a failed file until the file changes.
+    """
+    from mynotes.config import get_settings
+    from mynotes.db.session import session_scope
+    from mynotes.jobs.maintenance import retry_failed_extractions
+
+    try:
+        with session_scope() as session:
+            report = retry_failed_extractions(session, get_settings(), dry_run=dry_run)
+    except Exception as exc:
+        console.print(f"[red]retry failed: {exc}[/]")
+        raise typer.Exit(1) from exc
+    if dry_run:
+        console.print(f"{report['failed']} document version(s) with a failed extraction.")
+    else:
+        console.print(
+            f"Queued extraction again for {report['queued']} of {report['failed']} failed "
+            "version(s); the worker picks them up."
+        )
+
+
 agent_app = typer.Typer(help="The thin agent of server mode: feed a remote root from this machine.")
 app.add_typer(agent_app, name="agent")
 

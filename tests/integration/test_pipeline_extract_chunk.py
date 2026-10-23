@@ -317,6 +317,53 @@ def test_invalid_pdf_fails_the_version_without_retry(pipeline_env: PipelineEnv) 
         assert rows(session, Job, type="chunk") == []
 
 
+def test_retry_extract_queues_failed_versions_once(
+    pipeline_env: PipelineEnv, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``retry_failed_extractions`` queues one extract job per failed latest version."""
+    from mynotes.jobs.maintenance import retry_failed_extractions
+
+    write_file(pipeline_env.root_path / "broken.pdf", "isto não é um pdf, apenas texto simples\n")
+    write_file(pipeline_env.root_path / "fine.md", _NOTE_PT)
+    scan_root(pipeline_env.root_id)
+    drain_queue(pipeline_env.settings)
+    with session_scope() as session:
+        name = session.execute(
+            select(Workspace.name).where(Workspace.id == pipeline_env.workspace_id)
+        ).scalar_one()
+    monkeypatch.setattr(pipeline_env.settings, "workspace", name)
+
+    with session_scope() as session:
+        assert retry_failed_extractions(session, pipeline_env.settings, dry_run=True) == {
+            "failed": 1,
+            "queued": 0,
+        }
+        assert rows(session, Job, type="extract", status="queued") == []
+    with session_scope() as session:
+        assert retry_failed_extractions(session, pipeline_env.settings) == {
+            "failed": 1,
+            "queued": 1,
+        }
+    with session_scope() as session:
+        # Queued twice in a row: the dedupe key keeps a single active job.
+        assert retry_failed_extractions(session, pipeline_env.settings) == {
+            "failed": 1,
+            "queued": 0,
+        }
+        queued = rows(session, Job, type="extract", status="queued")
+        version = session.execute(
+            select(DocumentVersion)
+            .join(Document, Document.id == DocumentVersion.document_id)
+            .where(Document.source_root_id == pipeline_env.root_id, Document.format == "pdf")
+        ).scalar_one()
+        assert [job.payload["version_id"] for job in queued] == [version.id]
+        assert version.status == "failed"
+
+    drain_queue(pipeline_env.settings)
+    with session_scope() as session:
+        assert rows(session, Job, type="extract", status="queued") == []
+
+
 def test_registered_follow_up_is_enqueued_after_chunk(pipeline_env: PipelineEnv) -> None:
     """A registered follow-up is enqueued per version; a disabled one is not."""
     pipeline.register_follow_up(pipeline.FollowUp("test_follow", 99))

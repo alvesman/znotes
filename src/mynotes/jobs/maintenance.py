@@ -40,6 +40,7 @@ from mynotes.config import Settings
 from mynotes.db.models import (
     Chunk,
     Document,
+    DocumentVersion,
     EmbeddingCache,
     File,
     IndexOutbox,
@@ -47,12 +48,15 @@ from mynotes.db.models import (
     KgEntity,
     KgExtractionCache,
     KgMention,
+    SourceRoot,
+    Workspace,
 )
 from mynotes.db.session import session_scope
 from mynotes.embed.cache import embed_key
 from mynotes.embed.client import Embedder
 from mynotes.graph.ontology import EXTRACTOR_VERSION
 from mynotes.index.outbox import enqueue_chunk_deletes, enqueue_entity_deletes
+from mynotes.jobs.queue import enqueue
 from mynotes.jobs.registry import JobContext, Priority, handler
 
 logger = logging.getLogger(__name__)
@@ -585,6 +589,54 @@ def restore_backup(settings: Settings, dump_file: Path) -> dict[str, Any]:
         "chunks_index": chunks.get("new"),
         "entities_index": entities.get("new"),
     }
+
+
+def retry_failed_extractions(
+    session: Session, settings: Settings, *, dry_run: bool = False
+) -> dict[str, int]:
+    """Queue ``extract`` again for every latest version whose extraction failed.
+
+    Meant for after an extractor fix or upgrade: the scanner only queues new
+    and changed files, so a version marked ``failed`` stays failed until its
+    file changes. The version keeps its status and error until the new
+    attempt succeeds (or fails again with a fresh message). Versions with an
+    extract job already queued or running are counted but not queued twice.
+
+    Args:
+        session: Open session/transaction; the caller commits.
+        settings: Application settings (the workspace name).
+        dry_run: Count the failed versions without queueing anything.
+
+    Returns:
+        ``{"failed": <versions found>, "queued": <jobs created>}``.
+    """
+    version_ids = list(
+        session.execute(
+            select(DocumentVersion.id)
+            .join(Document, Document.id == DocumentVersion.document_id)
+            .join(SourceRoot, SourceRoot.id == Document.source_root_id)
+            .join(Workspace, Workspace.id == SourceRoot.workspace_id)
+            .where(
+                Workspace.name == settings.workspace,
+                DocumentVersion.is_latest.is_(True),
+                DocumentVersion.status == "failed",
+            )
+            .order_by(DocumentVersion.id)
+        ).scalars()
+    )
+    queued = 0
+    if not dry_run:
+        for version_id in version_ids:
+            job_id = enqueue(
+                session,
+                "extract",
+                {"version_id": int(version_id)},
+                dedupe_key=f"extract:{int(version_id)}",
+                priority=Priority.EXTRACT,
+            )
+            queued += job_id is not None
+        logger.info("queued extract again for %d of %d failed versions", queued, len(version_ids))
+    return {"failed": len(version_ids), "queued": queued}
 
 
 def run_maintenance(settings: Settings, *, dry_run: bool = False) -> dict[str, dict[str, int]]:

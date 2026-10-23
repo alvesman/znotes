@@ -224,3 +224,24 @@ def test_markdown_to_blocks_stamps_page_and_collects_links() -> None:
 def test_markdown_to_blocks_without_page_keeps_page_none() -> None:
     blocks, _ = markdown_to_blocks("# X\n\nTexto.\n")
     assert all(block.page is None for block in blocks)
+
+
+def test_table_finder_failure_retries_without_tables(
+    pdf_docs: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """pymupdf4llm's table finder returning None must not lose the document's text."""
+    from mynotes.extract import pdf as pdf_module
+
+    real = pdf_module._load_to_markdown()
+    calls: list[dict] = []
+
+    def flaky(document: object, **kwargs: object) -> object:
+        calls.append(dict(kwargs))
+        if kwargs.get("table_strategy", "lines") is not None:
+            raise AttributeError("'NoneType' object has no attribute 'tables'")
+        return real(document, **kwargs)
+
+    monkeypatch.setattr(pdf_module, "_load_to_markdown", lambda: flaky)
+    document = PdfExtractor().extract(pdf_docs / "titled.pdf")
+    assert document.plain_text().strip()
+    assert [c.get("table_strategy", "default") for c in calls][:2] == ["default", None]

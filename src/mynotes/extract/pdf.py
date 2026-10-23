@@ -213,12 +213,30 @@ def _largest_font_line(
     return None
 
 
+def _markdown_chunks(to_markdown: Callable[..., object], document: object, path: Path) -> object:
+    """``to_markdown(document, page_chunks=True)``, retried without table detection on failure.
+
+    pymupdf4llm's table finder can return None for some pages (seen with
+    pymupdf4llm 0.2.9 on PyMuPDF 1.26), which then fails inside the library
+    with ``AttributeError: 'NoneType' object has no attribute 'tables'``. The
+    text of such a document is still worth having, so it is extracted again
+    with ``table_strategy=None`` (tables become plain text).
+    """
+    try:
+        return to_markdown(document, page_chunks=True)
+    except AttributeError as exc:
+        if "tables" not in str(exc):
+            raise
+        logger.warning("table detection failed for %s (%s); extracting without tables", path, exc)
+        return to_markdown(document, page_chunks=True, table_strategy=None)
+
+
 def _pages_from_file(path: Path) -> list[tuple[int, str]]:
     """Run pymupdf4llm over one PDF file and normalize to (page, markdown)."""
     to_markdown = _load_to_markdown()
     document = pymupdf.open(path)
     try:
-        page_chunks = to_markdown(document, page_chunks=True)
+        page_chunks = _markdown_chunks(to_markdown, document, path)
     finally:
         document.close()
     return _to_pages(page_chunks)
@@ -331,7 +349,7 @@ class PdfExtractor:
             metadata_date = _parse_pdf_date(
                 document.metadata.get("modDate") or document.metadata.get("creationDate")
             )
-            page_chunks = to_markdown(document, page_chunks=True)
+            page_chunks = _markdown_chunks(to_markdown, document, path)
         finally:
             document.close()
 

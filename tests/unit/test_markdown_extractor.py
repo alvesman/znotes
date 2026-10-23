@@ -117,3 +117,25 @@ def test_wikilink_without_text_and_hashtag_in_list(tmp_path: Path) -> None:
         ("Alvo Simples", None)
     ]
     assert document.hashtags == ["Etiqueta-1"]
+
+
+def test_invalid_front_matter_is_kept_as_text(tmp_path: Path) -> None:
+    """A leading --- block that is not YAML (Obsidian %% comments %%) does not fail extraction."""
+    note = tmp_path / "template.md"
+    note.write_text(
+        "---\ndescription: %% What does the query do? %%\ntopics:\n  - \n---\n"
+        "# Query\n\nBody text.\n",
+        encoding="utf-8",
+    )
+    document = MarkdownExtractor().extract(note)
+    assert document.frontmatter == {}
+    assert any("front matter is not valid YAML" in w for w in document.warnings)
+    assert "Body text." in document.plain_text()
+    assert document.title == "Query"
+
+
+def test_horizontal_rule_start_is_not_front_matter(tmp_path: Path) -> None:
+    note = tmp_path / "rule.md"
+    note.write_text("---\nSome *emphasis* and a [link](x)\n\nMore.\n", encoding="utf-8")
+    document = MarkdownExtractor().extract(note)
+    assert "More." in document.plain_text()

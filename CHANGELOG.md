@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0rc3 (2026-10-23, preview of server mode)
+
+- **Extraction:** a note whose leading `---` block is not valid YAML (an Obsidian `%% comment %%`,
+  a template, or simply a horizontal rule) is now extracted as text with a warning instead of
+  failing; a PDF for which the table finder breaks is extracted again without table detection.
+- **New `mynotes maintenance retry-extract`:** queues extraction again for every document whose
+  last extraction failed (`--dry-run` counts them). Until now a failed file was only retried when
+  its content changed.
+
 ## 0.4.0rc2 (2026-10-23, preview of server mode)
 
 - **Server mode:** `mynotes token create --root NAME` creates the remote root for the token's user
