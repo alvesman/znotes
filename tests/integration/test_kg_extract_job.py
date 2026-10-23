@@ -38,6 +38,7 @@ from mynotes.db.models import (
     Workspace,
 )
 from mynotes.db.session import reset_engine, session_scope
+from mynotes.graph.extract import clear_error_cache, versions_missing_extraction
 from mynotes.graph.ontology import EXTRACTOR_VERSION
 from mynotes.jobs import pipeline
 from mynotes.jobs.registry import JobContext, Priority
@@ -370,14 +371,15 @@ def test_edited_section_only_calls_llm_for_the_changed_group(
 def test_invalid_json_is_cached_as_error_and_never_retried(
     env: KgEnv, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Two invalid answers end the job with a cached error extraction."""
+    """Invalid answers for the group and all its parts end the job with cached errors."""
     _document_id, version_id = ingest(env, "notes/ideia.md", _NOTE_1)
-    chat = FakeChat(["definitely not json", "still not json at all"])
+    chat = FakeChat(lambda messages: "definitely not json")
     patch_chat(monkeypatch, chat)
 
     run_kg_extract(env, version_id)
 
-    assert len(chat.calls) == 2, "initial call plus the single repair retry"
+    calls = len(chat.calls)
+    assert calls >= 2, "initial call plus the single repair retry, then the parts"
     with session_scope() as session:
         rows = (
             session.execute(
@@ -388,11 +390,15 @@ def test_invalid_json_is_cached_as_error_and_never_retried(
             .scalars()
             .all()
         )
-        assert len(rows) == 1
-        assert list(rows[0].result) == ["error"]
-        assert rows[0].result["error"]
+        assert rows, "the group and its parts are cached"
+        assert all(list(row.result) == ["error"] and row.result["error"] for row in rows)
     run_kg_extract(env, version_id)
-    assert len(chat.calls) == 2, "the cached error extraction prevents any retry loop"
+    assert len(chat.calls) == calls, "the cached error extraction prevents any retry loop"
+
+    with session_scope() as session:
+        assert version_id not in versions_missing_extraction(session)
+        assert clear_error_cache(session) == len(rows)
+        assert version_id in versions_missing_extraction(session), "backfill queues it again"
 
 
 def test_extract_status_reports_counts(env: KgEnv, monkeypatch: pytest.MonkeyPatch) -> None:

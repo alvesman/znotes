@@ -2,9 +2,16 @@
 
 from __future__ import annotations
 
+import json
+from collections.abc import Sequence
 from datetime import datetime
+from typing import Any
 from uuid import uuid4
 
+import pytest
+
+from fakes import FakeChat
+from mynotes.graph import extract as extract_module
 from mynotes.graph.extract import (
     ChunkGroup,
     ChunkRowFull,
@@ -13,9 +20,13 @@ from mynotes.graph.extract import (
     Extraction,
     build_groups,
     build_kg_messages,
+    extract_group,
+    merge_extractions,
     should_skip,
+    split_group,
 )
 from mynotes.graph.ontology import ENTITY_TYPES, EXTRACTOR_VERSION, RELATION_TYPES
+from mynotes.llm.chat import ChatMessage
 from mynotes.scan.hashing import hash_text
 
 
@@ -243,3 +254,121 @@ def test_prompt_entities_only_instruction_and_known_entity_cap() -> None:
     assert "Entity 49 (Concept)" in user
     assert "Entity 50 (Concept)" not in user
     assert "Title: (untitled)" in user
+
+
+class FakeSession:
+    """Just enough of a session for ``extract_group``: an empty cache."""
+
+    def get(self, model: Any, key: Any) -> None:
+        return None
+
+    def execute(self, statement: Any) -> None:
+        return None
+
+
+def _entity_json(*names: tuple[str, str]) -> str:
+    return json.dumps(
+        {"entities": [{"name": name, "type": kind} for name, kind in names], "relations": []}
+    )
+
+
+def _cache_recorder(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, dict]]:
+    written: list[tuple[str, dict]] = []
+    monkeypatch.setattr(
+        extract_module,
+        "_cache_result",
+        lambda session, content_hash, model, result: written.append((content_hash, result)),
+    )
+    return written
+
+
+def test_split_group_halves_at_paragraphs() -> None:
+    """The split lands on a blank line, close to the middle, and keeps the ids."""
+    kg_group = group("um dois\n\ntres quatro cinco\n\nseis\n\nsete oito", tokens=80)
+    halves = split_group(kg_group)
+    assert [half.text for half in halves] == ["um dois\n\ntres quatro cinco", "seis\n\nsete oito"]
+    assert all(half.chunk_ids == kg_group.chunk_ids for half in halves)
+    assert sum(half.token_count for half in halves) == 80
+    assert len({half.content_hash for half in halves} | {kg_group.content_hash}) == 3
+
+
+def test_split_group_falls_back_to_lines_or_gives_up() -> None:
+    """Without blank lines the split uses line breaks; one paragraph is not split."""
+    assert [half.text for half in split_group(group("a b\nc d\ne f"))] == ["a b\nc d", "e f"]
+    single = group("uma só linha sem quebras")
+    assert split_group(single) == [single]
+
+
+def test_merge_extractions_dedupes_and_caps() -> None:
+    """Entities repeat by name and type only once; relations by their key."""
+    alpha = ExtractedEntity(name="Alpha", type="Project")
+    beta = ExtractedEntity(name="Beta", type="Technology")
+    relation = ExtractedRelation(source="Alpha", target="Beta", type="uses")
+    merged = merge_extractions(
+        [
+            Extraction(entities=[alpha], relations=[]),
+            Extraction(
+                entities=[beta, ExtractedEntity(name="alpha", type="Project")], relations=[]
+            ),
+            Extraction(entities=[alpha, beta], relations=[relation, relation]),
+        ]
+    )
+    assert [entity.name for entity in merged.entities] == ["Alpha", "Beta"]
+    assert len(merged.relations) == 1
+    many = [ExtractedEntity(name=f"E{i}", type="Concept") for i in range(60)]
+    assert (
+        len(
+            merge_extractions(
+                [Extraction(entities=many[:40]), Extraction(entities=many[40:])]
+            ).entities
+        )
+        == 40
+    )
+
+
+def test_failed_group_is_extracted_in_parts(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A truncated answer for the whole group leads to one call per half, merged and cached."""
+    written = _cache_recorder(monkeypatch)
+    kg_group = group("Alpha is the project.\n\nBeta is the tool it uses.", tokens=100)
+
+    def answer(messages: Sequence[ChatMessage]) -> str:
+        text = messages[1].content.split("Text:\n", 1)[1]
+        if "Alpha" in text and "Beta" in text:
+            return '{"entities": [{"name": "Alpha", "type": "Project"}, {"name": "Be'
+        if "Alpha" in text:
+            return _entity_json(("Alpha", "Project"))
+        return _entity_json(("Beta", "Technology"))
+
+    chat = FakeChat(answer)
+    extraction = extract_group(FakeSession(), chat, kg_group, {"title": "t"}, "full")
+
+    assert [(entity.name, entity.type) for entity in extraction.entities] == [
+        ("Alpha", "Project"),
+        ("Beta", "Technology"),
+    ]
+    assert len(chat.calls) == 4  # whole group + repair, then one call per half
+    assert (
+        "Alpha (Project)" in chat.calls[3][1].content
+    )  # the second half knows the first's entities
+    halves = split_group(kg_group)
+    assert [content_hash for content_hash, _ in written] == [
+        halves[0].content_hash,
+        halves[1].content_hash,
+        kg_group.content_hash,
+    ]
+    assert len(written[2][1]["entities"]) == 2
+
+
+def test_unsplittable_failure_is_cached_as_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When even the smallest parts fail, the group caches an error and yields nothing."""
+    written = _cache_recorder(monkeypatch)
+    kg_group = group("\n\n".join(f"paragrafo {i}" for i in range(8)), tokens=200)
+    chat = FakeChat(lambda messages: "not json at all")
+
+    extraction = extract_group(FakeSession(), chat, kg_group, {}, "full")
+
+    assert extraction.entities == [] and extraction.relations == []
+    assert len(chat.calls) == 2 * (1 + 2 + 4)  # every node of the split tree, with its repair
+    assert written[-1][0] == kg_group.content_hash
+    assert all("error" in result for _, result in written)  # the 4 leaves and the group
+    assert len(written) == 7  # 4 leaves, 2 halves whose parts all failed, the group

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0rc4 (2026-10-23, preview of server mode)
+
+- **Knowledge graph:** a section group whose extraction answer does not parse (usually a dense
+  passage whose JSON ran past the model's output cap) is now split at paragraph boundaries and
+  extracted in parts, up to four parts, and the merged result is cached. Before, the group was
+  skipped and its entities were missing from the graph.
+- **`mynotes graph backfill --retry-errors`** forgets the groups whose extraction failed, so
+  their documents are queued again (for example after this fix).
+
 ## 0.4.0rc3 (2026-10-23, preview of server mode)
 
 - **Extraction:** a note whose leading `---` block is not valid YAML (an Obsidian `%% comment %%`,

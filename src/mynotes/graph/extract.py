@@ -6,7 +6,11 @@ non-skipped group is sent to the extract LLM as a background call, validated
 against the :class:`Extraction` schema and cached in ``kg_extraction_cache`` by
 the group's content hash and :data:`mynotes.graph.ontology.EXTRACTOR_VERSION`,
 so re-running a job or re-processing an unchanged section never calls the model
-again. The handler carries the entities found so far into the next group's
+again. A group whose answer does not parse even after the repair retry (most
+often a dense passage whose JSON ran past the output cap) is split at
+paragraph boundaries and extracted in parts, up to :data:`_MAX_SPLIT_DEPTH`
+times; the merged result is cached under the group's own hash. The handler
+carries the entities found so far into the next group's
 prompt (known entities) and hands the per-group list to ``resolve_entities``
 (task 41); the extraction results themselves stay in the cache.
 
@@ -46,6 +50,7 @@ _MIN_GROUP_TOKENS = 40
 _BOILERPLATE_DOTS_SHARE = 0.3
 _MAX_KNOWN_ENTITIES = 50
 _EXTRACT_MAX_TOKENS = 3000
+_MAX_SPLIT_DEPTH = 2
 _ERROR_CHARS = 500
 _MAX_ENTITIES = 40
 _MAX_RELATIONS = 60
@@ -498,19 +503,8 @@ def extract_group(
     cached = session.get(KgExtractionCache, (group.content_hash, EXTRACTOR_VERSION))
     if cached is not None:
         return Extraction.model_validate(cached.result)
-    messages = build_kg_messages(
-        group,
-        title=ctx.get("title"),
-        rel_path=ctx.get("rel_path") or "",
-        doc_date=ctx.get("doc_date"),
-        tags=ctx.get("tags") or [],
-        known_entities=ctx.get("known_entities") or [],
-        mode=mode,
-    )
     try:
-        extraction = complete_structured(
-            chat, messages, Extraction, priority="background", max_tokens=_EXTRACT_MAX_TOKENS
-        )
+        extraction = _extract_or_split(session, chat, group, ctx, mode, depth=0)
     except StructuredOutputError as exc:
         logger.warning(
             "kg extraction of group %s failed after the repair retry: %s",
@@ -525,6 +519,147 @@ def extract_group(
         session, group.content_hash, _chat_model_name(chat), extraction.model_dump(mode="json")
     )
     return extraction
+
+
+def _extract_or_split(
+    session: Session, chat: ChatModel, group: ChunkGroup, ctx: dict, mode: str, *, depth: int
+) -> Extraction:
+    """Call the model for ``group``; on a failed answer extract its parts instead.
+
+    The parts come from :func:`split_group` and are extracted in document
+    order, each one seeing the entities the earlier parts found. A part's
+    result is cached under the part's own hash (so a retry never repeats a
+    part that worked); the merged result is the caller's to cache.
+
+    Raises:
+        StructuredOutputError: When the answer fails and the group cannot be
+            split any further (a single paragraph, or ``depth`` at the limit),
+            or when every part failed too.
+    """
+    messages = build_kg_messages(
+        group,
+        title=ctx.get("title"),
+        rel_path=ctx.get("rel_path") or "",
+        doc_date=ctx.get("doc_date"),
+        tags=ctx.get("tags") or [],
+        known_entities=ctx.get("known_entities") or [],
+        mode=mode,
+    )
+    try:
+        return complete_structured(
+            chat, messages, Extraction, priority="background", max_tokens=_EXTRACT_MAX_TOKENS
+        )
+    except StructuredOutputError as exc:
+        parts = split_group(group) if depth < _MAX_SPLIT_DEPTH else [group]
+        if len(parts) < 2:
+            raise
+        failure = exc
+        logger.info(
+            "kg extraction of group %s (%d tokens) failed (%s); extracting it in %d parts",
+            group.content_hash[:12],
+            group.token_count,
+            exc.error[:120],
+            len(parts),
+        )
+    results: list[Extraction] = []
+    found: list[tuple[str, str]] = []
+    for part in parts:
+        part_ctx = {**ctx, "known_entities": [*(ctx.get("known_entities") or []), *found]}
+        cached = session.get(KgExtractionCache, (part.content_hash, EXTRACTOR_VERSION))
+        if cached is not None:
+            result = Extraction.model_validate(cached.result)
+        else:
+            try:
+                result = _extract_or_split(session, chat, part, part_ctx, mode, depth=depth + 1)
+            except StructuredOutputError as exc:
+                logger.warning(
+                    "kg extraction of part %s of group %s failed after the repair retry: %s",
+                    part.content_hash[:12],
+                    group.content_hash[:12],
+                    exc.error,
+                )
+                _cache_result(
+                    session,
+                    part.content_hash,
+                    _chat_model_name(chat),
+                    {"error": exc.error[:_ERROR_CHARS]},
+                )
+                continue
+            _cache_result(
+                session, part.content_hash, _chat_model_name(chat), result.model_dump(mode="json")
+            )
+        found.extend((entity.name, entity.type) for entity in result.entities)
+        results.append(result)
+    if not results:
+        raise failure
+    return merge_extractions(results)
+
+
+def split_group(group: ChunkGroup) -> list[ChunkGroup]:
+    """Split a group into two halves of about equal length at paragraph boundaries.
+
+    Paragraphs are the blank-line-separated parts of the text (chunks were
+    joined that way); a text without blank lines is split at line breaks.
+    The halves keep the group's chunk ids, section and table flag; the
+    group's token count is shared between them by character length.
+
+    Returns:
+        Two groups, or ``[group]`` when the text has no boundary to split at.
+    """
+    for separator in ("\n\n", "\n"):
+        pieces = [piece for piece in group.text.split(separator) if piece.strip()]
+        if len(pieces) < 2:
+            continue
+        half = sum(len(piece) for piece in pieces) / 2
+        first: list[str] = []
+        consumed = 0
+        for piece in pieces[:-1]:
+            if first and abs(consumed + len(piece) - half) > abs(consumed - half):
+                break
+            first.append(piece)
+            consumed += len(piece)
+        halves = [separator.join(first), separator.join(pieces[len(first) :])]
+        first_tokens = max(1, round(group.token_count * len(halves[0]) / max(1, len(group.text))))
+        tokens = [first_tokens, max(1, group.token_count - first_tokens)]
+        return [
+            ChunkGroup(
+                chunk_ids=list(group.chunk_ids),
+                section=group.section,
+                text=text,
+                content_hash=hash_text(text + "\x1f" + EXTRACTOR_VERSION),
+                token_count=token_count,
+                is_table=group.is_table,
+            )
+            for text, token_count in zip(halves, tokens, strict=True)
+        ]
+    return [group]
+
+
+def merge_extractions(parts: Sequence[Extraction]) -> Extraction:
+    """Merge the extractions of a split group: entities by name and type, relations by key.
+
+    The first occurrence of an entity wins; relations that repeat (same
+    source, target, type, attribute and value) are kept once. The schema's
+    caps on entities and relations apply to the merged lists.
+    """
+    entities: dict[tuple[str, str], ExtractedEntity] = {}
+    relations: dict[tuple[str, ...], ExtractedRelation] = {}
+    for part in parts:
+        for entity in part.entities:
+            entities.setdefault((normalize_key(entity.name), entity.type), entity)
+        for relation in part.relations:
+            key = (
+                normalize_key(relation.source),
+                normalize_key(relation.target),
+                relation.type,
+                relation.attribute or "",
+                relation.value or "",
+            )
+            relations.setdefault(key, relation)
+    return Extraction(
+        entities=list(entities.values())[:_MAX_ENTITIES],
+        relations=list(relations.values())[:_MAX_RELATIONS],
+    )
 
 
 def load_chunk_rows(session: Session, version_id: int) -> list[ChunkRowFull]:
@@ -599,6 +734,28 @@ def versions_missing_extraction(session: Session) -> list[int]:
         ):
             pending.append(version_id)
     return pending
+
+
+def clear_error_cache(session: Session) -> int:
+    """Delete the cache rows of this extractor version that hold an error instead of a result.
+
+    A group whose extraction failed (and, for a split group, its parts) is
+    cached as ``{"error": ...}`` so a job never retries it on its own. After
+    an extractor fix, dropping those rows lets ``graph backfill`` queue the
+    affected documents again.
+
+    Returns:
+        The number of rows deleted.
+    """
+    from sqlalchemy import delete
+
+    result = session.execute(
+        delete(KgExtractionCache).where(
+            KgExtractionCache.extractor_version == EXTRACTOR_VERSION,
+            KgExtractionCache.result.has_key("error"),
+        )
+    )
+    return int(result.rowcount or 0)
 
 
 def groups_overview(session: Session) -> dict[str, int]:

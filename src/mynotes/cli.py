@@ -1648,21 +1648,29 @@ def graph_backfill(
     limit: int | None = typer.Option(
         None, "--limit", min=1, help="Maximum number of versions to enqueue."
     ),
+    retry_errors: bool = typer.Option(
+        False,
+        "--retry-errors",
+        help="Forget the groups whose extraction failed, so their documents are queued again.",
+    ),
 ) -> None:
     """Enqueue kg_extract for latest embedded versions with uncached groups (task 40).
 
     Versions whose section groups are all in ``kg_extraction_cache`` are
-    skipped, so re-running backfill only tops up what is missing. Run
-    'mynotes worker --concurrency 10' to drain the queue: the LLM background
-    pool (8 slots) caps the actual model concurrency.
+    skipped, so re-running backfill only tops up what is missing; a group
+    whose extraction failed counts as cached until ``--retry-errors`` drops
+    it. Run 'mynotes worker --concurrency 10' to drain the queue: the LLM
+    background pool (8 slots) caps the actual model concurrency.
     """
     from mynotes.db.session import session_scope
-    from mynotes.graph.extract import versions_missing_extraction
+    from mynotes.graph.extract import clear_error_cache, versions_missing_extraction
     from mynotes.jobs.queue import enqueue
     from mynotes.jobs.registry import Priority
 
     enqueued = 0
     with session_scope() as session:
+        if retry_errors:
+            console.print(f"Forgot {clear_error_cache(session)} failed group extraction(s).")
         for version_id in versions_missing_extraction(session):
             if limit is not None and enqueued >= limit:
                 break

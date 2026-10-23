@@ -831,7 +831,12 @@ It can be turned off with `graph.lexical_mentions: false`.
 ```bash
 uv run mynotes graph backfill
 uv run mynotes graph backfill --limit 100
+uv run mynotes graph backfill --retry-errors   # also the passages whose extraction failed
 ```
+
+A passage whose extraction failed (the worker log says `failed after the repair retry`) is
+remembered as failed and not tried again on its own. `--retry-errors` forgets those failures first,
+so their documents are queued again; use it after an update that improves the extractor.
 
 By default (`retrieval.graph_expansion: auto`) answers use the graph only for questions that reach their subject through another note ("who maintains the plugin that the note 'X' uses?"), where it finds the second hop; for direct questions the graph only added noise in tests. `true` uses it for every question, `false` never. The graph also feeds the graph explorer, entity cards, timelines and Claude's graph tools.
 
@@ -1116,7 +1121,7 @@ Every command starts with `uv run mynotes` and is run from the mynotes folder. A
 | Command | What it does |
 |---|---|
 | `uv run mynotes graph extract-status` | Extraction progress. `--json` |
-| `uv run mynotes graph backfill` | Queue documents missing extractions. `--limit N` |
+| `uv run mynotes graph backfill` | Queue documents missing extractions. `--limit N`, `--retry-errors` |
 | `uv run mynotes graph entities` | List entities. Options: `--type TYPE`, `--limit N` (default 50) |
 | `uv run mynotes graph entity "NAME"` | An entity's card. Options: `--type TYPE`, `--json` |
 | `uv run mynotes graph neighbors "NAME"` | Connected entities. Options: `--hops N` (default 2), `--json` |
