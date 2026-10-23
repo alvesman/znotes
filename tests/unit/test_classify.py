@@ -336,3 +336,32 @@ def test_decisions_are_sorted_by_rel_path() -> None:
         Action.MISSING,
         Action.NEW,
     ]
+
+
+def test_precomputed_hash_is_used_without_reading_the_file() -> None:
+    """A manifest entry carries its hash: the classifier never calls hash_fn for it."""
+    hasher = FakeHasher({"a.md": "h-disk"})
+    on_disk = [
+        FileStat(
+            rel_path="a.md",
+            abs_path=Path("/data/a.md"),
+            size=100,
+            mtime_ns=MTIME + 10**12,
+            format="md",
+            placeholder=False,
+            settled=True,
+            content_hash="h-manifest",
+        )
+    ]
+    decisions = classify(
+        on_disk,
+        [known("a.md", content_hash="h-old")],
+        hash_fn=hasher,
+        mtime_tolerance_ns=0,
+        hash_always=False,
+        delete_grace=GRACE,
+        now=datetime.now(UTC),
+    )
+    assert [d.action for d in decisions] == [Action.MODIFIED]
+    assert decisions[0].content_hash == "h-manifest"
+    assert hasher.calls == []

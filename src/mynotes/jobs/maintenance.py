@@ -346,6 +346,15 @@ def handle_clean_caches(payload: dict[str, Any], context: JobContext) -> None:
     with session_scope() as session:
         counts = clean_caches(session, context.settings, context.embedder)
     logger.info("clean_caches done: %s", counts)
+    if context.settings.storage.dir is not None:
+        from mynotes.storage.blobs import get_blob_store
+        from mynotes.storage.gc import collect_garbage
+
+        try:
+            with session_scope() as session:
+                collect_garbage(session, get_blob_store())
+        except Exception:
+            logger.warning("blob store gc failed", exc_info=True)
 
 
 @handler("prune_ops")

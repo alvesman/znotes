@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -226,3 +226,51 @@ class ErrorModel(BaseModel):
     error: str
     detail: str
     candidates: list[dict[str, Any]] | None = None
+
+
+class ManifestEntryModel(BaseModel):
+    """One file in an agent's listing (``rel_path`` relative to the agent's folder)."""
+
+    rel_path: str = Field(min_length=1, max_length=4096)
+    size: int = Field(ge=0)
+    mtime_ns: int = Field(ge=0)
+    blake3: str | None = Field(default=None, min_length=64, max_length=64)
+    placeholder: bool = False
+
+
+class ManifestRequest(BaseModel):
+    """``POST /v1/roots/{root}/manifest``."""
+
+    scope: Literal["full", "paths"] = "full"
+    paths: list[str] = Field(default_factory=list)
+    entries: list[ManifestEntryModel] = Field(default_factory=list)
+
+
+class ManifestResponse(BaseModel):
+    scan_run_id: int
+    counts: dict[str, int]
+    upload: list[str]
+    actions: dict[str, str]
+    skipped: list[str]
+
+
+class UploadResponse(BaseModel):
+    action: str
+    content_hash: str
+    size: int
+
+
+class MoveRequest(BaseModel):
+    """``POST /v1/roots/{root}/files/{rel_path}/move``: the new path and its stat."""
+
+    to: str = Field(min_length=1, max_length=4096)
+    size: int = Field(ge=0)
+    mtime_ns: int = Field(ge=0)
+    blake3: str = Field(min_length=64, max_length=64)
+
+
+class HeartbeatRequest(BaseModel):
+    agent_version: str = ""
+    hostname: str = ""
+    path: str = ""
+    watch_state: str = ""

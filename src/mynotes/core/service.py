@@ -225,6 +225,8 @@ class DocumentView:
         latest_version_no: The latest snapshot number, or None.
         markdown: The extracted text with headings rendered as Markdown.
         sections: The latest version's sections in document order.
+        openable: Whether "Open in app" can work here: false for remote roots,
+            whose originals live on the owner's machine.
     """
 
     document_id: int
@@ -238,6 +240,7 @@ class DocumentView:
     latest_version_no: int | None
     markdown: str
     sections: list[SectionRef] = field(default_factory=list)
+    openable: bool = True
 
 
 def _apply_acl(filters: SearchFilters | None, principal: Principal) -> SearchFilters:
@@ -317,13 +320,14 @@ def _ir_markdown(ir: IRDocument) -> str:
 def _document_view(session: Session, document_id: int) -> DocumentView:
     """Build the :class:`DocumentView` for a resolved document."""
     row = session.execute(
-        select(Document, File.rel_path)
+        select(Document, File.rel_path, SourceRoot.kind)
         .outerjoin(File, File.id == Document.current_file_id)
+        .join(SourceRoot, SourceRoot.id == Document.source_root_id)
         .where(Document.id == document_id)
     ).first()
     if row is None:
         raise NotFound(f"no document with id {document_id}")
-    document, path = row
+    document, path, root_kind = row
     tags = _accepted_tags(session, document_id)
     latest_version_no: int | None = None
     markdown = ""
@@ -350,6 +354,7 @@ def _document_view(session: Session, document_id: int) -> DocumentView:
         latest_version_no=latest_version_no,
         markdown=markdown,
         sections=sections,
+        openable=root_kind != "remote",
     )
 
 
@@ -736,17 +741,40 @@ def resolve_file(document_id: int, *, principal: Principal = LOCAL) -> ResolvedF
     """
     with session_scope() as session:
         row = session.execute(
-            select(File.rel_path, File.format, SourceRoot.abs_path)
+            select(
+                File.rel_path,
+                File.format,
+                File.content_hash,
+                SourceRoot.kind,
+                SourceRoot.abs_path,
+                SourceRoot.workspace_id,
+                SourceRoot.id,
+            )
             .join(Document, Document.current_file_id == File.id)
             .join(SourceRoot, SourceRoot.id == File.source_root_id)
             .where(Document.id == document_id, File.status == "active")
         ).first()
     if row is None:
         raise NotFound(f"no accessible file for document {document_id}")
-    rel_path, file_format, root_abs = row
+    rel_path, file_format, content_hash, root_kind, root_abs, workspace_id, root_id = row
     _ensure_document_allowed(rel_path, principal)
-    root_path = Path(root_abs)
-    candidate = from_rel_path(root_path, rel_path)
+    if root_kind == "remote":
+        # The agent uploaded the bytes: serve the server's copy from the blob store.
+        from mynotes.storage.blobs import StorageNotConfigured, get_blob_store
+
+        if content_hash is None:
+            raise NotFound(f"no accessible file for document {document_id}")
+        try:
+            store = get_blob_store()
+        except StorageNotConfigured as exc:
+            raise NotFound(str(exc)) from exc
+        root_path = store.dir
+        candidate = store.path_for(int(workspace_id), int(root_id), content_hash, file_format)
+    else:
+        if root_abs is None:
+            raise NotFound(f"no accessible file for document {document_id}")
+        root_path = Path(root_abs)
+        candidate = from_rel_path(root_path, rel_path)
     if not is_within(root_path, candidate) or not long_path(candidate).exists():
         raise NotFound(f"no accessible file for document {document_id}")
     media_type, inline = _FILE_MEDIA_TYPES.get(file_format, ("application/octet-stream", False))
@@ -772,11 +800,21 @@ def open_original(document_id: int, *, principal: Principal = LOCAL) -> None:
         principal: The caller; must have ``can_open_files``.
 
     Raises:
-        Forbidden: When ``principal.can_open_files`` is false (team mode).
+        Forbidden: When ``principal.can_open_files`` is false (team mode), or
+            the document belongs to a remote root (its original is on the
+            owner's machine, not here).
         NotFound: When the document has no active, in-root file.
     """
     if not principal.can_open_files:
         raise Forbidden("opening files in apps is only allowed in local mode")
+    with session_scope() as session:
+        kind = session.execute(
+            select(SourceRoot.kind)
+            .join(Document, Document.source_root_id == SourceRoot.id)
+            .where(Document.id == document_id)
+        ).scalar_one_or_none()
+    if kind == "remote":
+        raise Forbidden("this note was uploaded by an agent; open it on the owner's machine")
     open_in_default_app(resolve_file(document_id, principal=principal).path)
 
 
@@ -1551,23 +1589,24 @@ def trigger_scan(
         root: Only this root name; None scans every enabled root.
         full: Re-hash every file (full verification) instead of an
             incremental scan.
-        principal: The caller.
+        principal: The caller; must be an admin (the LOCAL principal is).
 
     Returns:
         One :class:`ScanSummary` per scanned root; a failing root reports its
         error in ``errors`` without stopping the others.
 
     Raises:
+        Forbidden: When the caller is not an admin.
         NotFound: When no root matches.
     """
-    del principal
+    _require_admin(principal)
     settings = get_settings()
     statement = (
         select(SourceRoot)
         .join(Workspace, Workspace.id == SourceRoot.workspace_id)
         .where(Workspace.name == settings.workspace)
     )
-    statement = statement.where(SourceRoot.enabled.is_(True))
+    statement = statement.where(SourceRoot.enabled.is_(True), SourceRoot.kind == "local")
     if root is not None:
         statement = statement.where(SourceRoot.name == root)
     with session_scope() as session:
@@ -1577,9 +1616,10 @@ def trigger_scan(
         ]
     if not roots:
         raise NotFound(
-            f"no enabled source root named {root!r}; check mynotes.yaml and run 'mynotes init'"
+            f"no enabled local source root named {root!r}; remote roots are fed by their "
+            "agent; check mynotes.yaml and run 'mynotes init'"
             if root is not None
-            else "no enabled source roots; run 'mynotes init' first"
+            else "no enabled local source roots; run 'mynotes init' first"
         )
     kind: Literal["incremental", "full"] = "full" if full else "incremental"
     summaries: list[ScanSummary] = []
@@ -1602,7 +1642,7 @@ def status(*, principal: Principal = LOCAL) -> dict[str, Any]:
     """The current state of config, database, indices and endpoints.
 
     Args:
-        principal: The caller; in ``oidc`` mode only admins may see it (task 52).
+        principal: The caller; admins only (the LOCAL principal is one).
 
     Returns:
         The JSON-serializable status dict (rendered by ``mynotes status`` and
@@ -1613,10 +1653,10 @@ def status(*, principal: Principal = LOCAL) -> dict[str, Any]:
         (``drift``), so the dashboard needs no extra queries (task 48).
 
     Raises:
-        Forbidden: In ``oidc`` mode when the caller is not an admin.
+        Forbidden: When the caller is not an admin.
     """
-    if get_settings().auth.mode == "oidc" and not principal.is_admin:
-        raise Forbidden("the status endpoint is admin-only in team mode")
+    if not principal.is_admin:
+        raise Forbidden("the status endpoint is admin-only")
     data = collect_status()
     data.update(_status_extras())
     return data
@@ -1632,6 +1672,10 @@ def _status_extras() -> dict[str, Any]:
     except Exception:
         logger.warning("status: watcher state unavailable", exc_info=True)
         extras["watchers"] = []
+    try:
+        extras["watchers"].extend(_agent_rows())
+    except Exception:
+        logger.warning("status: agent state unavailable", exc_info=True)
     try:
         extras["last_scans"] = _last_scan_rows()
     except Exception:
@@ -1653,6 +1697,40 @@ def _status_extras() -> dict[str, Any]:
         logger.warning("status: drift report unavailable", exc_info=True)
         extras["drift"] = None
     return extras
+
+
+AGENT_STALE_AFTER_S = 120
+"""An agent that has not sent a heartbeat for this long is shown as stale."""
+
+
+def _agent_rows() -> list[dict[str, Any]]:
+    """Remote roots as watcher-like rows: the agent's last heartbeat decides the state."""
+    now = datetime.now(UTC)
+    with session_scope() as session:
+        rows = session.execute(
+            select(SourceRoot.name, SourceRoot.agent_last_seen_at, SourceRoot.agent_info)
+            .join(Workspace, Workspace.id == SourceRoot.workspace_id)
+            .where(
+                Workspace.name == get_settings().workspace,
+                SourceRoot.kind == "remote",
+                SourceRoot.enabled.is_(True),
+            )
+            .order_by(SourceRoot.name)
+        ).all()
+    result: list[dict[str, Any]] = []
+    for name, seen_at, info in rows:
+        stale = seen_at is None or (now - seen_at).total_seconds() > AGENT_STALE_AFTER_S
+        host = (info or {}).get("hostname") or ""
+        result.append(
+            {
+                "root": name,
+                "state": "agent" if not stale else "down",
+                "backend": f"agent on {host}" if host else "agent",
+                "since": seen_at.isoformat() if seen_at else "(never)",
+                "stale": stale,
+            }
+        )
+    return result
 
 
 def _last_scan_rows() -> list[dict[str, Any]]:

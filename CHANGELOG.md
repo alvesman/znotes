@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.0rc1 (2026-10-23, preview of server mode)
+
+- **Server mode:** one mynotes server for several people, each feeding their notes from their own
+  machine with the new `mynotes agent` (it watches the folder and uploads files; no database,
+  search index or model endpoint on that machine). The server keeps the uploaded files, indexes
+  them, and shows each person only their own notes. New commands `mynotes root add --remote`,
+  `mynotes token create|list|revoke`, `mynotes agent run|sync|status`; a sign-in page for the
+  web UI (`auth.mode: token`); the ingest API under `/v1/roots/{root}` (`docs/api.md`); the
+  `deployment/server/` compose files with a TLS proxy. Single-machine installs are unchanged.
+- **Status:** `POST /v1/scan` and `/v1/status` require an admin in every auth mode; the status page
+  lists agents and their last heartbeat, and the size of the uploaded-files store.
+
 ## 0.3.0 (2026-10-20)
 
 - **Web interface redesigned:** a cleaner, responsive layout that works on phones (the menu folds

@@ -27,12 +27,15 @@ class Principal:
         is_admin: Whether the caller may run mutations (tag merges, version
             review, entity merges) and see the status endpoint; always True in
             local mode, from ``auth.admin_principals`` in team mode (task 52).
+        ingest_roots: The remote roots this caller may feed through the
+            ingest API (an agent token's ``ingest:<root>`` scopes).
     """
 
     user: str
     acl_prefixes: list[str] | None = field(default=None)
     can_open_files: bool = False
     is_admin: bool = False
+    ingest_roots: frozenset[str] = field(default_factory=frozenset)
 
 
 LOCAL = Principal(user="local", acl_prefixes=None, can_open_files=True, is_admin=True)

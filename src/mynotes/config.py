@@ -431,6 +431,33 @@ class OpenSearchConfig(_StrictModel):
     entities_alias: str = "mynotes_entities"
 
 
+class AgentConfig(_StrictModel):
+    """A thin agent: watches one folder and feeds a remote root of a mynotes server.
+
+    Needs no database, search index or model endpoint; ``token`` comes from
+    ``MYNOTES_AGENT_TOKEN`` or the YAML (never commit it).
+    """
+
+    server_url: str
+    token: SecretStr | None = None
+    root: str
+    path: Path
+    settle_seconds: int = Field(default=10, ge=0)
+    scan_interval_minutes: int = Field(default=15, ge=1)
+    watch: bool = True
+    upload_concurrency: int = Field(default=4, ge=1, le=32)
+    verify_tls: bool = True
+    hash_cache: bool = True
+
+
+class StorageConfig(_StrictModel):
+    """The server's blob store for remote roots (files uploaded by agents)."""
+
+    dir: Path | None = None
+    max_upload_mb: int = Field(default=200, gt=0)
+    max_manifest_entries: int = Field(default=200_000, gt=0)
+
+
 class OIDCConfig(_StrictModel):
     """OIDC (Keycloak) issuer settings for team mode (PLAN.md §11, task 52)."""
 
@@ -444,6 +471,11 @@ class OIDCConfig(_StrictModel):
 class AuthConfig(_StrictModel):
     """Authentication mode for the HTTP API and web UI.
 
+    ``none`` (single user, bind to localhost) maps every request to the LOCAL
+    principal. ``token`` (server mode) requires a personal token created with
+    ``mynotes token create``: agents send it as a bearer, people paste it on
+    the login page. ``oidc`` validates JWTs from an identity provider. Bearer
+    tokens of the form ``mn_...`` are accepted in every mode.
     In ``oidc`` mode ``issuer`` and ``audience`` are required; ``admin_principals``
     lists the usernames (or ``group:<name>`` entries) allowed to run mutations
     (tag merges, version review, entity merges) and see the status endpoint.
@@ -452,7 +484,7 @@ class AuthConfig(_StrictModel):
     (run behind an auth proxy such as oauth2-proxy).
     """
 
-    mode: Literal["none", "oidc"] = "none"
+    mode: Literal["none", "token", "oidc"] = "none"
     oidc: OIDCConfig = Field(default_factory=OIDCConfig)
     trust_proxy_header: bool = False
     admin_principals: list[str] = Field(default_factory=list)
@@ -513,6 +545,12 @@ class FlatEnvSource(PydanticBaseSettingsSource):
     ENV_VAR_TO_PATH: ClassVar[dict[str, str]] = {
         "MYNOTES_PG_DSN": "postgres.dsn",
         "MYNOTES_OPENSEARCH_URL": "opensearch.url",
+        "MYNOTES_STORAGE_DIR": "storage.dir",
+        "MYNOTES_AUTH_MODE": "auth.mode",
+        "MYNOTES_AGENT_SERVER_URL": "agent.server_url",
+        "MYNOTES_AGENT_TOKEN": "agent.token",
+        "MYNOTES_AGENT_ROOT": "agent.root",
+        "MYNOTES_AGENT_PATH": "agent.path",
         "MYNOTES_OPENSEARCH_USER": "opensearch.user",
         "MYNOTES_OPENSEARCH_PASSWORD": "opensearch.password",
         "MYNOTES_OPENSEARCH_CHUNKS_ALIAS": "opensearch.chunks_alias",
@@ -573,7 +611,9 @@ class Settings(BaseSettings):
     retrieval: RetrievalConfig = Field(default_factory=RetrievalConfig)
     postgres: PostgresConfig = Field(default_factory=PostgresConfig)
     opensearch: OpenSearchConfig = Field(default_factory=OpenSearchConfig)
+    storage: StorageConfig = Field(default_factory=StorageConfig)
     auth: AuthConfig = Field(default_factory=AuthConfig)
+    agent: AgentConfig | None = None
 
     @classmethod
     def settings_customise_sources(

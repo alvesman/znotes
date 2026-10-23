@@ -14,11 +14,12 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Form, Query, Request
 from fastapi.templating import Jinja2Templates
-from starlette.responses import Response
+from starlette.responses import RedirectResponse, Response
 
 from mynotes import PROJECT_URL, __version__
 from mynotes.api import schemas
-from mynotes.api.auth import PrincipalDep
+from mynotes.api.auth import TOKEN_COOKIE, PrincipalDep
+from mynotes.config import get_settings
 from mynotes.core import service
 from mynotes.core.errors import Ambiguous, NotFound
 from mynotes.core.principal import Principal
@@ -47,6 +48,7 @@ FORMATS = ["md", "txt", "pdf", "docx", "pptx", "xlsx", "epub", "html"]
 """The checkbox options of the search form, in display order."""
 
 _MAX_TAGS = 500
+_COOKIE_MAX_AGE_S = 30 * 24 * 3600
 _SNIPPET_CHARS = 300
 
 _UI_CSP = (
@@ -115,12 +117,86 @@ templates.env.globals["VERSION"] = __version__
 
 def _render(request: Request, name: str, context: dict[str, Any]) -> Response:
     """Render one UI template with the UI security headers."""
+    context.setdefault("signed_in_user", _signed_in_user(request))
     return templates.TemplateResponse(
         request,
         name,
         context,
         headers={"Content-Security-Policy": _UI_CSP},
     )
+
+
+def _signed_in_user(request: Request) -> str | None:
+    """The name shown in the top bar with a sign-out link; None in local mode."""
+    if get_settings().auth.mode == "none":
+        return None
+    principal = getattr(request.state, "principal", None)
+    return principal.user if principal is not None else None
+
+
+def _safe_next(value: str | None) -> str:
+    """Where to go after signing in: a UI path from the same site, else the chat page."""
+    if value and value.startswith("/ui/") and not value.startswith("//") and "\n" not in value:
+        return value
+    return "/ui/chat"
+
+
+@router.get("/login")
+def login_page(request: Request, next: str | None = None) -> Response:
+    """The sign-in page (server mode): paste a personal token."""
+    return _render(
+        request,
+        "login.html",
+        {"nav": "login", "next": _safe_next(next), "error": None, "signed_in_user": None},
+    )
+
+
+@router.post("/login")
+def login_submit(
+    request: Request,
+    token: Annotated[str, Form()] = "",
+    next: Annotated[str, Form()] = "",
+) -> Response:
+    """Check the token and set the ``mynotes_token`` cookie."""
+    from mynotes.core import tokens
+
+    info = tokens.verify_token(token.strip()) if token.strip() else None
+    if info is None:
+        return _render(
+            request,
+            "login.html",
+            {
+                "nav": "login",
+                "next": _safe_next(next),
+                "error": "That token is not valid (or was revoked). Check it and try again.",
+                "signed_in_user": None,
+            },
+        )
+    response = RedirectResponse(_safe_next(next), status_code=303)
+    response.set_cookie(
+        TOKEN_COOKIE,
+        token.strip(),
+        httponly=True,
+        samesite="lax",
+        secure=_is_https(request),
+        max_age=_COOKIE_MAX_AGE_S,
+        path="/",
+    )
+    return response
+
+
+@router.post("/logout")
+def logout(request: Request) -> Response:
+    """Clear the cookie; the login page follows in server mode."""
+    target = "/ui/login" if get_settings().auth.mode != "none" else "/ui/chat"
+    response = RedirectResponse(target, status_code=303)
+    response.delete_cookie(TOKEN_COOKIE, path="/")
+    return response
+
+
+def _is_https(request: Request) -> bool:
+    forwarded = request.headers.get("x-forwarded-proto", "")
+    return request.url.scheme == "https" or forwarded.split(",")[0].strip() == "https"
 
 
 def _parse_since(value: str) -> datetime | None:

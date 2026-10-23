@@ -202,10 +202,12 @@ def handle_extract(payload: dict[str, Any], context: JobContext) -> None:
                 document.id,
             )
             return
-        path = from_rel_path(Path(root.abs_path), file_row.rel_path)
-        if not path.exists():
+        path = version_source_path(root, file_row.rel_path, version.content_hash, document.format)
+        if path is None or not path.exists():
             logger.info(
-                "extract of version %s: %s is gone; waiting for the next scan", version.id, path
+                "extract of version %s: %s is gone; waiting for the next scan or upload",
+                version.id,
+                path or file_row.rel_path,
             )
             return
         if hash_file(path) != version.content_hash:
@@ -225,6 +227,30 @@ def handle_extract(payload: dict[str, Any], context: JobContext) -> None:
             version.error = message
             return
         _store_ir(session, document, version, ir)
+
+
+def version_source_path(
+    root: SourceRoot, rel_path: str, content_hash: str | None, fmt: str
+) -> Path | None:
+    """Where the bytes of a version are: the local folder, or the blob store for remote roots.
+
+    Returns None for a remote root whose blob store is not configured or
+    whose version has no hash yet.
+    """
+    if root.kind == "remote":
+        if content_hash is None:
+            return None
+        from mynotes.storage.blobs import StorageNotConfigured, get_blob_store
+
+        try:
+            store = get_blob_store()
+        except StorageNotConfigured as exc:
+            logger.warning("%s", exc)
+            return None
+        return store.path_for(int(root.workspace_id), int(root.id), content_hash, fmt)
+    if root.abs_path is None:
+        return None
+    return from_rel_path(Path(root.abs_path), rel_path)
 
 
 def _store_ir(

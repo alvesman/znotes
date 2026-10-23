@@ -1,0 +1,130 @@
+# mynotes server: PostgreSQL, OpenSearch, the worker and the web/API server for several people,
+# each feeding their notes from their own machine with `mynotes agent`. No notes folder is
+# mounted here: uploaded files live in the blob store on the `apphome` volume.
+# Run from this folder: variables come from ./.env (copy .env.example), settings from
+# ./mynotes.yaml (copy mynotes.example.yaml). See README.md in this folder.
+name: mynotes-server
+
+x-app: &app
+  image: ghcr.io/alvesman/znotes:${MYNOTES_VERSION:-latest}
+  restart: unless-stopped
+  env_file: .env
+  environment:
+    MYNOTES_CONFIG: /config/mynotes.yaml
+    MYNOTES_PG_DSN: postgresql+psycopg://mynotes:${MYNOTES_COMPOSE_PG_PASSWORD}@postgres:5432/mynotes
+    MYNOTES_OPENSEARCH_URL: https://opensearch:9200
+    MYNOTES_OPENSEARCH_USER: admin
+    MYNOTES_STORAGE_DIR: /home/mynotes/storage
+    MYNOTES_AUTH_MODE: token
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  volumes:
+    - ./mynotes.yaml:/config/mynotes.yaml:ro
+    # Uploaded files (the blob store), state and caches, shared by the worker and the web server.
+    - apphome:/home/mynotes
+
+services:
+  postgres:
+    image: postgres:18.6
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mynotes
+      POSTGRES_DB: mynotes
+      POSTGRES_PASSWORD: ${MYNOTES_COMPOSE_PG_PASSWORD:?set MYNOTES_COMPOSE_PG_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mynotes -d mynotes"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  opensearch:
+    image: opensearchproject/opensearch:3.8.0
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      bootstrap.memory_lock: "true"
+      cluster.routing.allocation.disk.watermark.low: ${MYNOTES_COMPOSE_OS_DISK_LOW:-20gb}
+      cluster.routing.allocation.disk.watermark.high: ${MYNOTES_COMPOSE_OS_DISK_HIGH:-10gb}
+      cluster.routing.allocation.disk.watermark.flood_stage: ${MYNOTES_COMPOSE_OS_DISK_FLOOD:-5gb}
+      OPENSEARCH_JAVA_OPTS: "-Xms${MYNOTES_COMPOSE_OS_HEAP:-2g} -Xmx${MYNOTES_COMPOSE_OS_HEAP:-2g}"
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${MYNOTES_OPENSEARCH_PASSWORD:?set MYNOTES_OPENSEARCH_PASSWORD in .env}
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - osdata:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sk -u \"admin:$$OPENSEARCH_INITIAL_ADMIN_PASSWORD\" https://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+
+  init:
+    <<: *app
+    restart: "no"
+    command: ["mynotes", "init"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+
+  # Extracts, embeds, indexes and builds the graph from what the agents upload; no scanning here.
+  worker:
+    <<: *app
+    command: ["mynotes", "worker"]
+    depends_on:
+      init:
+        condition: service_completed_successfully
+
+  # Web UI and HTTP API with the built-in sign-in (auth.mode token). Published on
+  # MYNOTES_WEB_BIND (default: this host's localhost only). With a TLS-terminating proxy of
+  # your own (pfSense/HAProxy, nginx, Traefik...) in front, bind to the interface it reaches,
+  # e.g. 0.0.0.0:8765 or <lan-address>:8765, and point the proxy at it. Without one, start the
+  # optional Caddy service below instead (`docker compose --profile tls up -d`).
+  web:
+    <<: *app
+    command: ["mynotes", "serve", "--host", "0.0.0.0", "--port", "8765"]
+    ports:
+      - "${MYNOTES_WEB_BIND:-127.0.0.1:8765}:8765"
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/healthz', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # Optional TLS in front of the web server, for hosts without a proxy of their own. Only
+  # started with `--profile tls`. Set MYNOTES_SERVER_HOST in .env to the server's DNS name and
+  # Caddy obtains a certificate (ports 80 and 443 must be reachable from the internet), or edit
+  # Caddyfile for an internal certificate.
+  caddy:
+    image: caddy:2
+    profiles: ["tls"]
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      MYNOTES_SERVER_HOST: ${MYNOTES_SERVER_HOST:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+    depends_on:
+      - web
+
+volumes:
+  pgdata:
+  osdata:
+  apphome:
+  caddydata:

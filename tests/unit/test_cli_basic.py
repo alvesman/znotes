@@ -30,7 +30,7 @@ def test_init_exits_zero_when_ok(monkeypatch: pytest.MonkeyPatch) -> None:
         seen["apply_migrations"] = apply_migrations
         return [_result("config", "ok"), _result("postgres reachable", "ok")]
 
-    monkeypatch.setattr("mynotes.cli.run_init", fake_run_init)
+    monkeypatch.setattr("mynotes.core.setup.run_init", fake_run_init)
     result = runner.invoke(app, ["init"])
     assert result.exit_code == 0
     assert seen["apply_migrations"] is True
@@ -39,7 +39,8 @@ def test_init_exits_zero_when_ok(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_init_exits_zero_with_warnings(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "mynotes.cli.run_init", lambda apply_migrations=True: [_result("tool: tesseract", "warn")]
+        "mynotes.core.setup.run_init",
+        lambda apply_migrations=True: [_result("tool: tesseract", "warn")],
     )
     result = runner.invoke(app, ["init"])
     assert result.exit_code == 0
@@ -47,7 +48,7 @@ def test_init_exits_zero_with_warnings(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_init_exits_one_on_fail(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "mynotes.cli.run_init",
+        "mynotes.core.setup.run_init",
         lambda apply_migrations=True: [
             _result("config", "ok"),
             _result("postgres reachable", "fail"),
@@ -64,7 +65,7 @@ def test_init_no_migrate_flag(monkeypatch: pytest.MonkeyPatch) -> None:
         seen["apply_migrations"] = apply_migrations
         return []
 
-    monkeypatch.setattr("mynotes.cli.run_init", fake_run_init)
+    monkeypatch.setattr("mynotes.core.setup.run_init", fake_run_init)
     result = runner.invoke(app, ["init", "--no-migrate"])
     assert result.exit_code == 0
     assert seen["apply_migrations"] is False
@@ -86,7 +87,7 @@ def test_status_json_is_valid_json(monkeypatch: pytest.MonkeyPatch) -> None:
         "opensearch": {"aliases": {}, "problems": []},
         "endpoints": [],
     }
-    monkeypatch.setattr("mynotes.cli.collect_status", lambda: canned)
+    monkeypatch.setattr("mynotes.core.setup.collect_status", lambda: canned)
     result = runner.invoke(app, ["status", "--json"])
     assert result.exit_code == 0
     assert json.loads(result.output) == canned
@@ -94,7 +95,7 @@ def test_status_json_is_valid_json(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_status_panels_render(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "mynotes.cli.collect_status",
+        "mynotes.core.setup.collect_status",
         lambda: {
             "config_file": None,
             "workspace": "default",
@@ -117,7 +118,7 @@ def test_check_endpoints_exits_zero_when_ok(monkeypatch: pytest.MonkeyPatch) -> 
         seen["include_llm"] = include_llm
         return [_result("embedding: dimension", "ok"), _result("llm: chat", "ok")]
 
-    monkeypatch.setattr("mynotes.cli.check_endpoints", fake_check_endpoints)
+    monkeypatch.setattr("mynotes.core.setup.check_endpoints", fake_check_endpoints)
     result = runner.invoke(app, ["check-endpoints"])
     assert result.exit_code == 0
     assert seen["include_llm"] is True
@@ -126,7 +127,8 @@ def test_check_endpoints_exits_zero_when_ok(monkeypatch: pytest.MonkeyPatch) -> 
 
 def test_check_endpoints_exits_one_on_fail(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "mynotes.cli.check_endpoints", lambda include_llm=True: [_result("llm: chat", "fail")]
+        "mynotes.core.setup.check_endpoints",
+        lambda include_llm=True: [_result("llm: chat", "fail")],
     )
     result = runner.invoke(app, ["check-endpoints"])
     assert result.exit_code == 1
@@ -139,14 +141,14 @@ def test_check_endpoints_no_llm_flag(monkeypatch: pytest.MonkeyPatch) -> None:
         seen["include_llm"] = include_llm
         return [_result("embedding", "ok")]
 
-    monkeypatch.setattr("mynotes.cli.check_endpoints", fake_check_endpoints)
+    monkeypatch.setattr("mynotes.core.setup.check_endpoints", fake_check_endpoints)
     result = runner.invoke(app, ["check-endpoints", "--no-llm"])
     assert result.exit_code == 0
     assert seen["include_llm"] is False
 
 
 def test_verbose_sets_debug_level(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("mynotes.cli.run_init", lambda apply_migrations=True: [])
+    monkeypatch.setattr("mynotes.core.setup.run_init", lambda apply_migrations=True: [])
     result = runner.invoke(app, ["--verbose", "init"])
     assert result.exit_code == 0
     assert logging.getLogger().level == logging.DEBUG
@@ -154,7 +156,7 @@ def test_verbose_sets_debug_level(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_default_level_is_info(monkeypatch: pytest.MonkeyPatch) -> None:
     logging.getLogger().setLevel(logging.DEBUG)
-    monkeypatch.setattr("mynotes.cli.run_init", lambda apply_migrations=True: [])
+    monkeypatch.setattr("mynotes.core.setup.run_init", lambda apply_migrations=True: [])
     result = runner.invoke(app, ["init"])
     assert result.exit_code == 0
     assert logging.getLogger().level == logging.INFO

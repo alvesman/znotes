@@ -124,3 +124,69 @@ def test_collect_status_reports_empty_stack(init_settings: Settings) -> None:
     assert alias_info["docs"] == 0
     assert status["opensearch"]["problems"] == []
     assert status["roots"][0]["source_root_id"] is not None
+
+
+def test_remote_roots_survive_init_and_are_never_scanned(init_settings: Settings) -> None:
+    """A remote root is not in mynotes.yaml: init keeps it, the scheduler and watcher skip it."""
+    from mynotes.core import roots
+    from mynotes.core.acl import grant_prefixes
+    from mynotes.core.service import trigger_scan
+    from mynotes.scan.scheduler import enabled_root_ids
+    from mynotes.scan.watch import watched_roots
+
+    run_init()
+    root_id = roots.add_remote_root("alice-notes", "alice")
+    listed = {info.name: info for info in roots.list_roots()}
+    assert listed["alice-notes"].kind == "remote" and listed["alice-notes"].owner == "alice"
+    assert listed["alice-notes"].abs_path is None
+    assert grant_prefixes(["alice"]) == ["alice-notes"]
+
+    results = run_init()  # a second init must not disable the remote root
+    assert all(result.ok for result in results), results
+    enabled = {info.name: info.enabled for info in roots.list_roots()}
+    assert enabled["ideas"] is True and enabled["alice-notes"] is True
+    assert root_id not in enabled_root_ids(init_settings)
+    assert all(name != "alice-notes" for name, _id, _path in watched_roots(init_settings))
+    local_enabled = [info for info in roots.list_roots() if info.kind == "local" and info.enabled]
+    assert len(trigger_scan()) == len(local_enabled)  # remote roots are never scanned here
+
+    with pytest.raises(ValueError):
+        roots.add_remote_root("alice-notes", "alice")  # taken
+    with pytest.raises(ValueError):
+        roots.add_remote_root("bad/name", "alice")
+    assert roots.disable_remote_root("alice-notes") == 0
+    assert {info.name: info.enabled for info in roots.list_roots()}["alice-notes"] is False
+    _remove_remote_root("alice-notes", "alice")
+
+
+def test_init_refuses_a_local_root_named_like_a_remote_root(
+    init_settings: Settings, tmp_path: Path
+) -> None:
+    from mynotes.core import roots
+
+    run_init()
+    roots.add_remote_root("shared", "bob")
+    try:
+        folder = tmp_path / "shared"
+        folder.mkdir()
+        init_settings.roots.append(type(init_settings.roots[0])(name="shared", path=str(folder)))
+        results = run_init()
+        failed = [result for result in results if result.level == "fail"]
+        assert failed and "remote root" in failed[0].detail
+    finally:
+        init_settings.roots.pop()
+        _remove_remote_root("shared", "bob")
+
+
+def _remove_remote_root(name: str, owner: str) -> None:
+    """Drop the rows a remote-root test created, so the shared database stays clean."""
+    from sqlalchemy import delete
+
+    from mynotes.db.models import AclGrant, SourceRoot
+    from mynotes.db.session import session_scope
+
+    with session_scope() as session:
+        session.execute(delete(AclGrant).where(AclGrant.principal == owner))
+        session.execute(
+            delete(SourceRoot).where(SourceRoot.name == name, SourceRoot.kind == "remote")
+        )

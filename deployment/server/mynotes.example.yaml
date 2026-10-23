@@ -1,0 +1,43 @@
+# mynotes server settings. Copy to mynotes.yaml in this folder.
+# No roots here: notes arrive from the agents into remote roots created with
+# `mynotes root add <name> --remote --owner <user>`. Secrets and endpoints come from .env.
+workspace: default
+
+storage:
+  dir: /home/mynotes/storage     # the blob store (the apphome volume); also set by docker-compose.yml
+  max_upload_mb: 200
+  max_manifest_entries: 200000
+
+auth:
+  mode: token                    # people sign in with a personal token; agents send theirs as a bearer
+
+scan:
+  delete_grace_seconds: 60       # a file an agent reports gone stays "missing" this long first
+
+formats: [md, txt, pdf, docx, pptx, xlsx, html, epub]
+
+extract:
+  pdf_ocr: false
+  office_backend: markitdown
+
+tags:
+  llm_autotag: true
+  llm_auto_accept: 0.85
+
+versions:
+  max_per_document: 5
+  min_interval_hours: 24
+  index_old_versions: false
+
+retention:
+  deleted_days: 30               # purged documents free their uploaded files on the next night
+  jobs_done_days: 14
+  outbox_processed_days: 7
+  cache_orphan_days: 30
+
+opensearch:
+  url: https://opensearch:9200
+  user: admin
+  verify_certs: false
+  chunks_alias: mynotes_chunks
+  entities_alias: mynotes_entities

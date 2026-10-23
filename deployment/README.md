@@ -1,11 +1,12 @@
 # Deploying mynotes
 
-There are two ways to run mynotes. Both use the same PostgreSQL 18.6 and OpenSearch 3.8.0 in Docker; they differ in where mynotes itself (the worker, the web UI and API, the CLI and the MCP server) runs.
+There are three ways to run mynotes. All use the same PostgreSQL 18.6 and OpenSearch 3.8.0 in Docker; they differ in where mynotes itself (the worker, the web UI and API, the CLI and the MCP server) runs and where the notes are.
 
-| Folder | What runs in Docker | mynotes itself |
-|---|---|---|
-| [`infrastructure/`](infrastructure/README.md) | PostgreSQL and OpenSearch | Natively on your machine, with Python 3.12 and uv |
-| [`full-stack/`](full-stack/README.md) | PostgreSQL, OpenSearch, the worker and the web UI/API | In a container: the published image `ghcr.io/alvesman/znotes`, or one built from this repository |
+| Folder | What runs in Docker | mynotes itself | Notes |
+|---|---|---|---|
+| [`infrastructure/`](infrastructure/README.md) | PostgreSQL and OpenSearch | Natively on your machine, with Python 3.12 and uv | Folders on this machine |
+| [`full-stack/`](full-stack/README.md) | PostgreSQL, OpenSearch, the worker and the web UI/API | In a container: the published image `ghcr.io/alvesman/znotes`, or one built from this repository | One folder mounted into the containers |
+| [`server/`](server/README.md) | Everything, plus a TLS proxy, for several people | In containers on a server; a small agent on each person's machine | Uploaded by the agents; each person sees their own |
 
 ## Trade-offs
 
@@ -23,6 +24,8 @@ There are two ways to run mynotes. Both use the same PostgreSQL 18.6 and OpenSea
 | **Exposure** | OpenSearch and PostgreSQL on localhost ports | Only the web UI/API port on localhost; the databases stay inside Docker |
 
 Both keep everything on your machine and have no login in local mode, so the web UI/API is published on `127.0.0.1` only.
+
+**Server mode** (the `server/` folder) is the one for a team or for your own notes on several machines: people sign in with personal tokens, agents feed their folders, and the web UI is reachable over HTTPS. Open-in-app is not available there either (the originals are on the owners' machines).
 
 **Which one to choose:**
 - **Infrastructure only** for your own laptop or desktop. You get every feature: native file watching, open-in-app, and the OS autostart service.

@@ -146,6 +146,8 @@ All commands in this manual are typed into a terminal (Terminal on macOS and Lin
 
 You only do this once. It takes about 15 minutes, plus the time to index your notes.
 
+> **Several people, or your notes on several machines?** Install the *server* variant instead: one server in Docker and a small agent on each machine; see [deployment/server/README.md](../deployment/server/README.md) and section 17. The steps below set up mynotes for one person on one computer.
+
 ### Step 1: Download mynotes
 
 ```bash
@@ -1001,9 +1003,30 @@ Your notes are never touched.
 
 ---
 
-## 17. Shared (team) use
+## 17. Shared (team) use: a server and agents
 
-mynotes is designed for one person on one computer. It also has the building blocks for shared use: sign-in through an OpenID Connect provider (`auth.mode: oidc` in `mynotes.yaml`), and per-folder read permissions for users and groups:
+mynotes can also run as one **server** for several people. The server (PostgreSQL, OpenSearch, the worker and the web interface, in Docker) never sees a notes folder: on each person's machine a small **agent** watches their folder and uploads the files, and the server keeps a copy, indexes it and shows each person only their own notes. People sign in to the web interface with a personal token. The setup is described in [deployment/server/README.md](../deployment/server/README.md); in short, the administrator runs on the server:
+
+```bash
+mynotes root add alice-notes --remote --owner alice        # a root fed by alice's agent
+mynotes token create --user alice --name laptop --root alice-notes   # her agent's token
+mynotes token create --user alice --name web --web                   # her sign-in token
+mynotes token create --user admin --name me --admin                  # your own
+mynotes root list                                          # roots and when each agent was last seen
+mynotes token list / mynotes token revoke <id>
+```
+
+and alice runs on her machine, with the server's address, her agent token, the root's name and her folder in `MYNOTES_AGENT_SERVER_URL`, `MYNOTES_AGENT_TOKEN`, `MYNOTES_AGENT_ROOT` and `MYNOTES_AGENT_PATH`:
+
+```bash
+uv run mynotes agent run        # one full sync, then it watches the folder; Ctrl+C stops it
+uv run mynotes agent sync       # one sync, then exit
+uv run mynotes agent status     # what the server knows about this root
+```
+
+On the server the notes of a remote root appear under the root's name (`alice-notes/ideas/plan.md`), and alice's read access is granted under that prefix when the root is created. **Open in app** is not offered for uploaded notes; **Open** and **Download** serve the server's copy.
+
+The older building blocks remain: sign-in through an OpenID Connect provider (`auth.mode: oidc`), and per-folder read permissions for users and groups:
 
 ```bash
 uv run mynotes acl grant alice "projects/alfa"
@@ -1013,7 +1036,7 @@ uv run mynotes acl revoke alice "projects/alfa"
 uv run mynotes acl list
 ```
 
-Setting this up needs an identity provider and a sign-in proxy in front of the web interface; ask whoever administers your installation. To run everything, including the worker and the web interface, in Docker on a server, see [deployment/README.md](../deployment/README.md).
+OIDC needs an identity provider and a sign-in proxy in front of the web interface; the token sign-in of server mode needs neither. To run everything in Docker, see [deployment/README.md](../deployment/README.md).
 
 ---
 
@@ -1111,6 +1134,11 @@ Every command starts with `uv run mynotes` and is run from the mynotes folder. A
 | `uv run mynotes acl grant USER "FOLDER"` | Let a user (or `group:NAME`) read under a folder (`""` = everything) |
 | `uv run mynotes acl revoke USER "FOLDER"` | Remove that permission |
 | `uv run mynotes acl list` | List all permissions |
+| `uv run mynotes root add NAME --remote --owner USER` | Create a root fed by a user's agent (server mode) |
+| `uv run mynotes root list` / `root remove NAME` | List the roots / take a remote root out of the index |
+| `uv run mynotes token create --user USER [--root NAME] [--web] [--admin]` | Create a personal token (printed once) |
+| `uv run mynotes token list` / `token revoke ID` | List / revoke tokens |
+| `uv run mynotes agent run` / `agent sync` / `agent status` | The agent on a person's machine (server mode) |
 
 ### Global options
 

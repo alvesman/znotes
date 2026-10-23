@@ -53,6 +53,8 @@ class FileStat:
     format: str
     placeholder: bool
     settled: bool
+    content_hash: str | None = None
+    """A hash computed elsewhere (an agent's manifest); the classifier then never reads the file."""
 
 
 def walk_root(

@@ -76,17 +76,32 @@ class Workspace(Base):
 
 
 class SourceRoot(Base):
-    """One watched folder tree inside a workspace."""
+    """One folder tree inside a workspace.
+
+    ``kind`` is ``local`` (a folder on this machine, ``abs_path`` set, scanned
+    and watched here) or ``remote`` (fed by an agent on the owner's machine
+    through the ingest API; the files live in the blob store, ``abs_path`` is
+    NULL).
+    """
 
     __tablename__ = "source_root"
     __table_args__ = (
         sa.UniqueConstraint("workspace_id", "name", name="uq_source_root_workspace_name"),
+        sa.CheckConstraint("kind IN ('local', 'remote')", name="ck_source_root_kind"),
     )
 
     id: Mapped[int] = mapped_column(sa.BigInteger, sa.Identity(always=True), primary_key=True)
     workspace_id: Mapped[int] = mapped_column(sa.ForeignKey("workspace.id"), nullable=False)
     name: Mapped[str] = mapped_column(sa.Text, nullable=False)
-    abs_path: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    kind: Mapped[str] = mapped_column(sa.Text, nullable=False, server_default="local")
+    abs_path: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    owner: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    agent_last_seen_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True), nullable=True
+    )
+    agent_info: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=_EMPTY_JSONB
+    )
     enabled: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.true())
     case_sensitive: Mapped[bool | None] = mapped_column(sa.Boolean, nullable=True)
     config: Mapped[dict[str, Any]] = mapped_column(
@@ -104,7 +119,8 @@ class ScanRun(Base):
     __table_args__ = (
         sa.CheckConstraint("kind IN ('incremental', 'full', 'targeted')", name="ck_scan_run_kind"),
         sa.CheckConstraint(
-            "trigger IN ('schedule', 'manual', 'watch', 'startup')", name="ck_scan_run_trigger"
+            "trigger IN ('schedule', 'manual', 'watch', 'startup', 'agent')",
+            name="ck_scan_run_trigger",
         ),
         sa.CheckConstraint("status IN ('running', 'done', 'failed')", name="ck_scan_run_status"),
         sa.Index("ix_scan_run_source_root_id", "source_root_id"),
@@ -802,5 +818,49 @@ class ChatEntry(Base):
     )
     relevant: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.true())
     created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), nullable=False, server_default=_NOW
+    )
+
+
+class ApiToken(Base):
+    """A hashed bearer token for an agent or a web user (``mn_...``, shown once).
+
+    ``scopes``: ``ingest:<root name>`` lets an agent feed that remote root;
+    ``web`` grants a person's read and review access; ``admin`` the admin
+    actions. Only the sha256 of the secret is stored.
+    """
+
+    __tablename__ = "api_token"
+    __table_args__ = (
+        sa.UniqueConstraint("token_hash", name="uq_api_token_hash"),
+        sa.Index("ix_api_token_workspace_principal", "workspace_id", "principal"),
+    )
+
+    id: Mapped[int] = mapped_column(sa.BigInteger, sa.Identity(always=True), primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(sa.ForeignKey("workspace.id"), nullable=False)
+    principal: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    name: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    token_prefix: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    token_hash: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    scopes: Mapped[list[str]] = mapped_column(ARRAY(sa.Text), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), nullable=False, server_default=_NOW
+    )
+    last_used_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True), nullable=True)
+
+
+class AppState(Base):
+    """Small shared state (watcher states, the drift report) keyed by name.
+
+    Replaces the per-process JSON files under the user state dir, so the web
+    process can show what the worker and the agents report.
+    """
+
+    __tablename__ = "app_state"
+
+    key: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    value: Mapped[Any] = mapped_column(JSONB, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), nullable=False, server_default=_NOW
     )

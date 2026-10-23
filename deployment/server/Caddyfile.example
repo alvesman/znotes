@@ -1,0 +1,8 @@
+# Reverse proxy with TLS for the mynotes server. Copy to Caddyfile.
+# With a public DNS name, Caddy gets a Let's Encrypt certificate by itself.
+# On a private network, replace the first line with `https://notes.internal {` and add
+# `tls internal` inside the block (browsers must then trust Caddy's local CA).
+{$MYNOTES_SERVER_HOST} {
+    reverse_proxy web:8765
+    encode gzip
+}

@@ -23,10 +23,10 @@ from rich.table import Table
 from rich.text import Text
 
 from mynotes import __version__
-from mynotes.core.setup import CheckResult, check_endpoints, collect_status, run_init
 from mynotes.logging_setup import configure_logging
 
 if TYPE_CHECKING:
+    from mynotes.core.setup import CheckResult
     from mynotes.retrieval.assemble import Citation
     from mynotes.retrieval.types import SearchFilters, SearchHit
 
@@ -277,6 +277,8 @@ def init(
     no_migrate: bool = typer.Option(False, "--no-migrate", help="Skip database migrations."),
 ) -> None:
     """Prepare the database, workspace, source roots and OpenSearch indices."""
+    from mynotes.core.setup import run_init
+
     results = run_init(apply_migrations=not no_migrate)
     console.print(_results_table(results, "mynotes init"))
     if any(result.level == "fail" for result in results):
@@ -288,6 +290,8 @@ def status(
     as_json: bool = typer.Option(False, "--json", help="Print the status as JSON."),
 ) -> None:
     """Show the state of the database, search indices and endpoints."""
+    from mynotes.core.setup import collect_status
+
     data = collect_status()
     if as_json:
         typer.echo(json.dumps(data, default=str, indent=2))
@@ -300,6 +304,8 @@ def check_endpoints_cmd(
     no_llm: bool = typer.Option(False, "--no-llm", help="Skip the LLM chat check."),
 ) -> None:
     """Verify the embedding, reranker and chat endpoints."""
+    from mynotes.core.setup import check_endpoints
+
     results = check_endpoints(include_llm=not no_llm)
     console.print(_results_table(results, "mynotes check-endpoints"))
     if any(result.level == "fail" for result in results):
@@ -2213,6 +2219,228 @@ def maintenance_run(
     for operation, operation_counts in report.items():
         table.add_row(operation, _counts_text(operation_counts))
     console.print(table)
+
+
+agent_app = typer.Typer(help="The thin agent of server mode: feed a remote root from this machine.")
+app.add_typer(agent_app, name="agent")
+
+
+def _agent_settings() -> Any:
+    from mynotes.agent.runner import AgentNotConfigured, agent_config
+    from mynotes.config import get_settings
+
+    settings = get_settings()
+    try:
+        agent_config(settings)
+    except AgentNotConfigured as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(1) from exc
+    return settings
+
+
+@agent_app.command("run")
+def agent_run() -> None:
+    """Sync the folder, then watch it and re-sync until interrupted."""
+    from mynotes.agent.client import AgentAuthError
+    from mynotes.agent.runner import run_agent
+
+    settings = _agent_settings()
+    stop = threading.Event()
+
+    def request_stop(signum: int, frame: Any) -> None:
+        del signum, frame
+        stop.set()
+
+    signal.signal(signal.SIGINT, request_stop)
+    signal.signal(signal.SIGTERM, request_stop)
+    try:
+        run_agent(settings, stop)
+    except AgentAuthError as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(1) from exc
+
+
+@agent_app.command("sync")
+def agent_sync() -> None:
+    """One full sync of the folder, then exit."""
+    from mynotes.agent.client import AgentAuthError, ServerError
+    from mynotes.agent.runner import sync_once
+
+    settings = _agent_settings()
+    try:
+        report = sync_once(settings)
+    except (AgentAuthError, ServerError, OSError) as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(1) from exc
+    console.print(
+        f"{report.listed} file(s) listed, {report.uploaded} uploaded, "
+        f"{len(report.failed)} failed, {report.skipped_unsettled} not settled yet, "
+        f"{report.skipped_large} larger than the server accepts; server: {report.counts}"
+    )
+    if report.failed:
+        raise typer.Exit(1)
+
+
+@agent_app.command("status")
+def agent_status() -> None:
+    """What the server knows about this agent's root."""
+    from mynotes.agent.client import AgentAuthError, ServerError
+    from mynotes.agent.runner import build_sync
+
+    settings = _agent_settings()
+    sync = build_sync(settings)
+    try:
+        data = sync.client.status()
+    except (AgentAuthError, ServerError, OSError) as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(1) from exc
+    finally:
+        sync.client.close()
+    console.print_json(json.dumps(data, default=str))
+
+
+root_app = typer.Typer(
+    help="Source roots: local folders from mynotes.yaml, remote roots fed by agents."
+)
+app.add_typer(root_app, name="root")
+
+
+@root_app.command("add")
+def root_add(
+    name: str = typer.Argument(..., help="The root's name; uploaded paths get it as a prefix."),
+    remote: bool = typer.Option(False, "--remote", help="A root fed by an agent (server mode)."),
+    owner: str | None = typer.Option(None, "--owner", help="The user whose notes these are."),
+) -> None:
+    """Create a remote root for one user (local roots come from mynotes.yaml and 'init')."""
+    from mynotes.core import roots
+    from mynotes.core.errors import NotFound
+
+    if not remote:
+        console.print("[red]Local roots are configured in mynotes.yaml; use --remote here.[/]")
+        raise typer.Exit(1)
+    if not owner:
+        console.print("[red]--owner is required for a remote root.[/]")
+        raise typer.Exit(1)
+    try:
+        root_id = roots.add_remote_root(name, owner)
+    except (ValueError, NotFound) as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(1) from exc
+    console.print(
+        f"[green]Created remote root '{name}' (id {root_id}) for {owner}; read access granted "
+        f"under '{name}'.[/] Next: mynotes token create --user {owner} --root {name}"
+    )
+
+
+@root_app.command("list")
+def root_list() -> None:
+    """List the workspace's roots."""
+    from mynotes.core import roots
+
+    table = Table("id", "name", "kind", "enabled", "owner", "path / agent")
+    for info in roots.list_roots():
+        where = info.abs_path or "-"
+        if info.kind == "remote":
+            seen = (
+                info.agent_last_seen_at.strftime("%Y-%m-%d %H:%M")
+                if info.agent_last_seen_at
+                else "never"
+            )
+            where = f"agent last seen {seen}"
+        table.add_row(
+            str(info.id),
+            info.name,
+            info.kind,
+            "yes" if info.enabled else "no",
+            info.owner or "-",
+            where,
+        )
+    console.print(table)
+
+
+@root_app.command("remove")
+def root_remove(name: str = typer.Argument(..., help="The remote root to disable.")) -> None:
+    """Disable a remote root: its notes leave the search index (rows and files are kept)."""
+    from mynotes.core import roots
+    from mynotes.core.errors import NotFound
+
+    try:
+        queued = roots.disable_remote_root(name)
+    except NotFound as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(1) from exc
+    console.print(f"[green]Disabled remote root '{name}'; {queued} chunk(s) queued for removal.[/]")
+
+
+token_app = typer.Typer(help="Personal API tokens for agents and web users (server mode).")
+app.add_typer(token_app, name="token")
+
+
+@token_app.command("create")
+def token_create(
+    user: str = typer.Option(..., "--user", help="The person the token acts as."),
+    name: str = typer.Option("default", "--name", help="A label (e.g. the machine's name)."),
+    root: list[str] | None = typer.Option(  # noqa: B008
+        None, "--root", help="Remote root(s) the token's agent may feed (repeatable)."
+    ),
+    web: bool = typer.Option(False, "--web", help="Sign-in to the web UI and read access."),
+    admin: bool = typer.Option(False, "--admin", help="Admin actions (implies --web)."),
+) -> None:
+    """Create a token and print its secret once."""
+    from mynotes.core import tokens
+    from mynotes.core.errors import NotFound
+
+    scopes = [f"{tokens.INGEST_SCOPE}{name_}" for name_ in (root or [])]
+    if web or admin:
+        scopes.append(tokens.WEB_SCOPE)
+    if admin:
+        scopes.append(tokens.ADMIN_SCOPE)
+    try:
+        secret, info = tokens.create_token(user, name, scopes)
+    except (ValueError, NotFound) as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(1) from exc
+    console.print(
+        f"[green]Token {info.id} ({info.name}) for {user}, scopes: {', '.join(info.scopes)}[/]"
+    )
+    console.print("Copy it now; it is not stored and cannot be shown again:")
+    console.print(secret, markup=False, highlight=False)
+
+
+@token_app.command("list")
+def token_list() -> None:
+    """List the tokens (never their secrets)."""
+    from mynotes.core import tokens
+
+    table = Table("id", "user", "name", "prefix", "scopes", "created", "last used", "revoked")
+    for info in tokens.list_tokens():
+        table.add_row(
+            str(info.id),
+            info.principal,
+            info.name,
+            info.token_prefix + "…",
+            ", ".join(info.scopes),
+            info.created_at.strftime("%Y-%m-%d"),
+            info.last_used_at.strftime("%Y-%m-%d %H:%M") if info.last_used_at else "never",
+            info.revoked_at.strftime("%Y-%m-%d") if info.revoked_at else "",
+        )
+    console.print(table)
+
+
+@token_app.command("revoke")
+def token_revoke(
+    token_id: int = typer.Argument(..., help="The token id from 'token list'."),
+) -> None:
+    """Revoke a token; its agent or user is cut off at once."""
+    from mynotes.core import tokens
+    from mynotes.core.errors import NotFound
+
+    try:
+        tokens.revoke_token(token_id)
+    except NotFound as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(1) from exc
+    console.print(f"[green]Revoked token {token_id}.[/]")
 
 
 acl_app = typer.Typer(help="Team-mode path ACL grants (read).")

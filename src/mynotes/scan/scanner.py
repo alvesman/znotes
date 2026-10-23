@@ -46,7 +46,9 @@ ADVISORY_UNLOCK_SQL = "SELECT pg_advisory_unlock(hashtext('scan:' || CAST(:rid A
 """Session-level lock taken per source root so only one scan runs at a time."""
 
 _KINDS = ("incremental", "full", "targeted")
-_TRIGGERS = ("schedule", "manual", "watch", "startup")
+_TRIGGERS = ("schedule", "manual", "watch", "startup", "agent")
+ScanKind = Literal["incremental", "full", "targeted"]
+ScanTrigger = Literal["schedule", "manual", "watch", "startup", "agent"]
 
 
 @dataclass
@@ -73,8 +75,8 @@ class ScanSummary:
 def scan_root(
     source_root_id: int,
     *,
-    kind: Literal["incremental", "full", "targeted"] = "incremental",
-    trigger: Literal["schedule", "manual", "watch", "startup"] = "manual",
+    kind: ScanKind = "incremental",
+    trigger: ScanTrigger = "manual",
     rel_paths: Sequence[str] | None = None,
 ) -> ScanSummary:
     """Scan one source root and persist every change it finds.
@@ -133,9 +135,8 @@ def _run_scan(
     trigger: str,
     rel_paths: Sequence[str] | None,
 ) -> tuple[ScanSummary, int]:
-    """Run one scan: record the run, classify and apply decisions in batches."""
+    """Run one scan: record the run, walk, classify and apply decisions in batches."""
     now = datetime.now(UTC)
-    scan_config = settings.scan
     session = Session(bind=engine)
     try:
         root_row = session.get(SourceRoot, source_root_id)
@@ -144,46 +145,22 @@ def _run_scan(
         root_id = root_row.id
         workspace_id = root_row.workspace_id
         root_name = root_row.name
-        scan_run = ScanRun(source_root_id=root_id, kind=kind, trigger=trigger, counts={})
-        session.add(scan_run)
-        session.commit()
-        run_id = scan_run.id
+        run_id = record_scan_run(session, root_id, kind, trigger)
 
-        on_disk, known = _collect(
-            session, root_id, root_name, Path(root_row.abs_path), settings, kind, rel_paths
+        on_disk, requested = _walk(Path(root_row.abs_path), settings, kind, rel_paths)
+        known = load_known(session, root_id, rel_paths=requested)
+        logger.debug(
+            "scan of root '%s' (%s): %d file(s) on disk, %d known row(s)",
+            root_name,
+            kind,
+            len(on_disk),
+            len(known),
         )
-        decisions = classify(
-            on_disk,
-            known,
-            hash_fn=hash_file,
-            mtime_tolerance_ns=scan_config.mtime_tolerance_ms * _NS_PER_MS,
-            hash_always=_hash_always_for(settings, root_name),
-            delete_grace=timedelta(seconds=scan_config.delete_grace_seconds),
-            now=now,
-            full_scan=(kind == "full"),
+        decisions = classify_for_root(
+            on_disk, known, settings, root_name, now=now, full_scan=(kind == "full")
         )
-
-        counts: dict[str, int] = {}
-        errors: list[str] = []
-        for batch in _chunks(decisions, _BATCH_SIZE):
-            try:
-                batch_counts = _apply_batch(session, batch, root_id, workspace_id, now, settings)
-                session.commit()
-            except Exception as exc:
-                session.rollback()
-                message = f"{type(exc).__name__}: {exc}"
-                errors.append(message)
-                logger.exception("scan batch failed for source root %d", root_id)
-                continue
-            for action, count in batch_counts.items():
-                counts[action] = counts.get(action, 0) + count
-
-        session.execute(
-            update(ScanRun)
-            .where(ScanRun.id == run_id)
-            .values(finished_at=func.now(), status="done", counts=counts)
-        )
-        session.commit()
+        counts, errors = apply_decisions(session, decisions, root_id, workspace_id, now, settings)
+        finish_scan_run(session, run_id, counts)
         if errors:
             logger.warning(
                 "scan of source root %d finished with %d failed batch(es)", root_id, len(errors)
@@ -195,47 +172,152 @@ def _run_scan(
         session.close()
 
 
-def _collect(
-    session: Session,
-    root_id: int,
-    root_name: str,
-    root_path: Path,
+def record_scan_run(session: Session, root_id: int, kind: str, trigger: str) -> int:
+    """Insert the ``scan_run`` row for a scan that is starting; returns its id (committed)."""
+    scan_run = ScanRun(source_root_id=root_id, kind=kind, trigger=trigger, counts={})
+    session.add(scan_run)
+    session.commit()
+    return int(scan_run.id)
+
+
+def finish_scan_run(session: Session, run_id: int, counts: dict[str, int]) -> None:
+    """Mark a ``scan_run`` done with its per-action counts (committed)."""
+    session.execute(
+        update(ScanRun)
+        .where(ScanRun.id == run_id)
+        .values(finished_at=func.now(), status="done", counts=counts)
+    )
+    session.commit()
+
+
+def classify_for_root(
+    on_disk: list[FileStat],
+    known: list[KnownFile],
     settings: Settings,
-    kind: str,
-    rel_paths: Sequence[str] | None,
-) -> tuple[list[FileStat], list[KnownFile]]:
-    """Walk (or stat) the root and load the ``file`` rows to compare against."""
+    root_name: str,
+    *,
+    now: datetime,
+    full_scan: bool = False,
+) -> list[Decision]:
+    """Run :func:`classify` with the root's scan settings (tolerance, hashing, grace)."""
+    scan_config = settings.scan
+    return classify(
+        on_disk,
+        known,
+        hash_fn=hash_file,
+        mtime_tolerance_ns=scan_config.mtime_tolerance_ms * _NS_PER_MS,
+        hash_always=_hash_always_for(settings, root_name),
+        delete_grace=timedelta(seconds=scan_config.delete_grace_seconds),
+        now=now,
+        full_scan=full_scan,
+    )
+
+
+def apply_decisions(
+    session: Session,
+    decisions: list[Decision],
+    root_id: int,
+    workspace_id: int,
+    now: datetime,
+    settings: Settings,
+) -> tuple[dict[str, int], list[str]]:
+    """Persist decisions in committed batches; a failing batch is skipped and reported.
+
+    Shared by the local scan and the agent manifest (``scan.remote``).
+
+    Returns:
+        ``(counts per action, error messages of failed batches)``.
+    """
+    counts: dict[str, int] = {}
+    errors: list[str] = []
+    for batch in _chunks(decisions, _BATCH_SIZE):
+        try:
+            batch_counts = _apply_batch(session, batch, root_id, workspace_id, now, settings)
+            session.commit()
+        except Exception as exc:
+            session.rollback()
+            errors.append(f"{type(exc).__name__}: {exc}")
+            logger.exception("scan batch failed for source root %d", root_id)
+            continue
+        for action, count in batch_counts.items():
+            counts[action] = counts.get(action, 0) + count
+    return counts, errors
+
+
+def apply_decisions_in_transaction(
+    session: Session,
+    decisions: list[Decision],
+    root_id: int,
+    workspace_id: int,
+    now: datetime,
+    settings: Settings,
+) -> dict[str, int]:
+    """Persist decisions without committing: the caller's transaction (and lock) spans them all.
+
+    Used by the ingest API, whose per-root lock is a transaction lock.
+    """
+    counts: dict[str, int] = {}
+    for batch in _chunks(decisions, _BATCH_SIZE):
+        for action, count in _apply_batch(
+            session, batch, root_id, workspace_id, now, settings
+        ).items():
+            counts[action] = counts.get(action, 0) + count
+    return counts
+
+
+def tombstone(session: Session, known: KnownFile, now: datetime) -> None:
+    """Delete a known file and its document at once (no grace), as a DELETED decision would."""
+    _apply_deleted(session, Decision(Action.DELETED, known.rel_path, known=known), now)
+
+
+def _walk(
+    root_path: Path, settings: Settings, kind: str, rel_paths: Sequence[str] | None
+) -> tuple[list[FileStat], list[str] | None]:
+    """Walk the root, or stat the requested paths for a targeted scan.
+
+    Returns:
+        ``(on_disk, requested)``; ``requested`` is the normalized path list of
+        a targeted scan, else None.
+    """
     rules = IgnoreRules(root_path, settings.scan.ignore)
     if kind == "targeted":
         if not rel_paths:
             raise ValueError("targeted scans require rel_paths")
-        requested = [_normalize_rel(path) for path in rel_paths]
+        requested = [normalize_rel(path) for path in rel_paths]
         on_disk, _missing = stat_paths(
             root_path, requested, rules, settle_seconds=settings.scan.settle_seconds
         )
-        stmt = select(File).where(
-            File.source_root_id == root_id,
-            or_(File.rel_path.in_(requested), File.status == "missing"),
+        return on_disk, requested
+    on_disk = list(
+        walk_root(
+            root_path,
+            rules,
+            settle_seconds=settings.scan.settle_seconds,
+            skip_placeholders=settings.scan.skip_cloud_placeholders,
         )
-    else:
-        on_disk = list(
-            walk_root(
-                root_path,
-                rules,
-                settle_seconds=settings.scan.settle_seconds,
-                skip_placeholders=settings.scan.skip_cloud_placeholders,
-            )
-        )
-        stmt = select(File).where(File.source_root_id == root_id, File.status != "deleted")
-    rows = session.execute(stmt).scalars().all()
-    logger.debug(
-        "scan of root '%s' (%s): %d file(s) on disk, %d known row(s)",
-        root_name,
-        kind,
-        len(on_disk),
-        len(rows),
     )
-    known = [
+    return on_disk, None
+
+
+def load_known(
+    session: Session, root_id: int, *, rel_paths: Sequence[str] | None = None
+) -> list[KnownFile]:
+    """The ``file`` rows a scan compares against, as :class:`KnownFile` snapshots.
+
+    Args:
+        session: An open session.
+        root_id: The source root.
+        rel_paths: For a targeted scan: only these paths, plus every
+            ``missing`` row so a delayed rename is still paired. None loads
+            every row that is not deleted.
+    """
+    stmt = select(File).where(File.source_root_id == root_id)
+    if rel_paths is not None:
+        stmt = stmt.where(or_(File.rel_path.in_(list(rel_paths)), File.status == "missing"))
+    else:
+        stmt = stmt.where(File.status != "deleted")
+    rows = session.execute(stmt).scalars().all()
+    return [
         KnownFile(
             id=row.id,
             rel_path=row.rel_path,
@@ -248,11 +330,10 @@ def _collect(
         )
         for row in rows
     ]
-    return on_disk, known
 
 
-def _normalize_rel(path: str) -> str:
-    """Normalize a requested path the same way the walker does."""
+def normalize_rel(path: str) -> str:
+    """Normalize a requested path the same way the walker does (NFC, posix, no edge slashes)."""
     return unicodedata.normalize("NFC", str(path).replace("\\", "/").strip("/"))
 
 

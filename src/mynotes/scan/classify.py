@@ -204,9 +204,14 @@ def _hash_stat(
 ) -> str | None:
     """Hash one file, appending a LOCKED decision when it cannot be read.
 
+    A stat that already carries ``content_hash`` (an agent's manifest entry)
+    is not read at all.
+
     Returns:
         The digest, or None when a LOCKED decision was recorded instead.
     """
+    if stat.content_hash is not None:
+        return stat.content_hash
     try:
         return hash_fn(stat.abs_path)
     except FileLockedError:

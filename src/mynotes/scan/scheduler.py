@@ -79,7 +79,11 @@ def enabled_root_ids(settings: Settings) -> list[int]:
     stmt = (
         select(SourceRoot.id)
         .join(Workspace, Workspace.id == SourceRoot.workspace_id)
-        .where(Workspace.name == settings.workspace, SourceRoot.enabled.is_(True))
+        .where(
+            Workspace.name == settings.workspace,
+            SourceRoot.enabled.is_(True),
+            SourceRoot.kind == "local",
+        )
         .order_by(SourceRoot.id)
     )
     with session_scope() as session:

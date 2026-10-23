@@ -169,5 +169,24 @@ opensearch:
   chunks_alias: mynotes_chunks
   entities_alias: mynotes_entities
 
+# Server mode (several people, agents on their machines; deployment/server/README.md):
+storage:
+  dir: null                      # the blob store for remote roots, e.g. /var/lib/mynotes/storage
+  max_upload_mb: 200
+  max_manifest_entries: 200000
+
 auth:
-  mode: none                     # none | oidc
+  mode: none                     # none (local, no login) | token (personal tokens, sign-in page) | oidc
+
+# The agent of server mode (nothing else above is needed on that machine; the token is better
+# kept in the environment: MYNOTES_AGENT_SERVER_URL/TOKEN/ROOT/PATH).
+# agent:
+#   server_url: https://notes.example.org
+#   token: null
+#   root: alice-notes             # created on the server with `mynotes root add ... --remote`
+#   path: ~/Documents/notes
+#   settle_seconds: 10
+#   scan_interval_minutes: 15
+#   watch: true
+#   upload_concurrency: 4
+#   verify_tls: true

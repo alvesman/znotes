@@ -18,21 +18,28 @@ from fastapi.testclient import TestClient
 from mynotes.api.app import create_app
 from mynotes.api.auth import get_principal
 from mynotes.core import service
+from mynotes.core.errors import Forbidden, NotFound
 from mynotes.core.principal import LOCAL, Principal
 
 DOCX_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 
+Row = tuple[object, ...]
+
+
 class _FakeResult:
-    def __init__(self, row: tuple[str, str, str] | None) -> None:
+    def __init__(self, row: Row | None) -> None:
         self._row = row
 
-    def first(self) -> tuple[str, str, str] | None:
+    def first(self) -> Row | None:
         return self._row
+
+    def scalar_one_or_none(self) -> object:
+        return self._row[0] if self._row else None
 
 
 class _FakeSession:
-    def __init__(self, row: tuple[str, str, str] | None) -> None:
+    def __init__(self, row: Row | None) -> None:
         self._row = row
 
     def execute(self, statement: object) -> _FakeResult:
@@ -41,8 +48,16 @@ class _FakeSession:
 
 
 def _fake_db(
-    row: tuple[str, str, str] | None,
+    row: tuple[str, str, str] | Row | None,
 ) -> Callable[[], AbstractContextManager[_FakeSession]]:
+    """A session whose one query returns ``row``.
+
+    A 3-tuple ``(rel_path, format, root_abs)`` describes a local root and is
+    widened to the columns ``resolve_file`` selects; longer rows pass as is.
+    """
+    if row is not None and len(row) == 3:
+        rel_path, file_format, root_abs = row
+        row = (rel_path, file_format, None, "local", root_abs, 1, 1)
     return lambda: nullcontext(_FakeSession(row))
 
 
@@ -237,3 +252,50 @@ def test_resolve_file_enforces_acl(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     principal = Principal(user="team", acl_prefixes=["allowed"], can_open_files=False)
     with pytest.raises(service.Forbidden):
         service.resolve_file(1, principal=principal)
+
+
+def test_resolve_file_serves_remote_roots_from_the_blob_store(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A remote root's bytes come from storage.dir, named by hash and format."""
+    from mynotes.config import Settings
+    from mynotes.storage.blobs import BlobStore
+
+    store = BlobStore(tmp_path / "blobs")
+    digest = "ab" * 32
+    blob = store.path_for(1, 7, digest, "pdf")
+    blob.parent.mkdir(parents=True)
+    blob.write_bytes(b"%PDF-1.4 fake")
+    settings = Settings(storage={"dir": str(tmp_path / "blobs")})
+    monkeypatch.setattr("mynotes.storage.blobs.get_settings", lambda: settings)
+    monkeypatch.setattr(
+        service,
+        "session_scope",
+        _fake_db(("alice-notes/reports/q1.pdf", "pdf", digest, "remote", None, 1, 7)),
+    )
+
+    resolved = service.resolve_file(1)
+
+    assert resolved.path == blob.resolve()
+    assert resolved.filename == "q1.pdf"
+    assert resolved.media_type == "application/pdf"
+
+
+def test_resolve_file_remote_root_without_storage_dir_is_not_found(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from mynotes.config import Settings
+
+    monkeypatch.setattr("mynotes.storage.blobs.get_settings", lambda: Settings())
+    monkeypatch.setattr(
+        service, "session_scope", _fake_db(("r/a.md", "md", "cd" * 32, "remote", None, 1, 2))
+    )
+    with pytest.raises(NotFound):
+        service.resolve_file(1)
+
+
+def test_open_original_refuses_remote_roots(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The original of an uploaded note is on the owner's machine, not here."""
+    monkeypatch.setattr(service, "session_scope", _fake_db(("remote",)))
+    with pytest.raises(Forbidden):
+        service.open_original(1, principal=LOCAL)

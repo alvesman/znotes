@@ -1,7 +1,11 @@
 """Pluggable authentication for the HTTP API and web UI (PLAN.md §10.2, task 52).
 
 ``auth.mode = "none"`` (the default, local mode) maps every request to
-:class:`LOCAL <mynotes.core.principal.Principal>`. ``auth.mode = "oidc"``
+:class:`LOCAL <mynotes.core.principal.Principal>`. ``auth.mode = "token"``
+(server mode) accepts only the personal tokens of :mod:`mynotes.core.tokens`
+(``mn_...``, as a bearer header or the UI cookie); such tokens are honoured in
+every mode, so an agent can feed a server that otherwise runs OIDC or none.
+``auth.mode = "oidc"``
 (team mode) validates the ``Authorization: Bearer <jwt>`` against the issuer's
 JWKS (OIDC discovery document, cached for ``jwks_cache_s``; the key set is
 refreshed once on an unknown ``kid``), checks ``iss``/``aud``/``exp``/``nbf``
@@ -29,6 +33,7 @@ import jwt
 from fastapi import Depends, HTTPException, Request
 
 from mynotes.config import AuthConfig, get_settings
+from mynotes.core import tokens
 from mynotes.core.acl import GROUP_PREFIX, resolve_prefixes
 from mynotes.core.principal import LOCAL, Principal
 
@@ -40,7 +45,7 @@ _LEEWAY_S = 30
 _DISCOVERY_TIMEOUT_S = 5.0
 _ALGORITHMS = ("RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "PS256", "PS384", "PS512")
 
-_TOKEN_COOKIE = "mynotes_token"
+TOKEN_COOKIE = "mynotes_token"
 _PROXY_TOKEN_HEADER = "x-forwarded-access-token"
 
 _MISSING_CREDENTIALS = HTTPException(
@@ -196,7 +201,7 @@ def _extract_token(request: Request, auth: AuthConfig) -> str | None:
         forwarded = request.headers.get(_PROXY_TOKEN_HEADER)
         if forwarded and forwarded.strip():
             return forwarded.strip()
-    cookie = request.cookies.get(_TOKEN_COOKIE)
+    cookie = request.cookies.get(TOKEN_COOKIE)
     return cookie if cookie and cookie.strip() else None
 
 
@@ -208,18 +213,33 @@ def get_principal(request: Request) -> Principal:
             and ``mynotes_token`` cookie).
 
     Returns:
-        ``LOCAL`` in ``none`` mode; the OIDC principal in ``oidc`` mode.
+        The token's principal for an ``mn_`` bearer or cookie (any mode);
+        otherwise ``LOCAL`` in ``none`` mode, or the OIDC principal in
+        ``oidc`` mode.
 
     Raises:
-        HTTPException: 401 when no credentials or an invalid token is
-            presented in ``oidc`` mode.
+        HTTPException: 401 for an unknown or revoked token, and in ``token``
+            and ``oidc`` modes when no valid credentials are presented.
     """
+    principal = _resolve_principal(request)
+    request.state.principal = principal  # the web templates show who is signed in
+    return principal
+
+
+def _resolve_principal(request: Request) -> Principal:
     auth = get_settings().auth
+    token = _extract_token(request, auth)
+    if token and tokens.looks_like_token(token):
+        info = tokens.verify_token(token)
+        if info is None:
+            raise _INVALID_TOKEN
+        return tokens.principal_for(info)
     if auth.mode == "none":
         return LOCAL
-    token = _extract_token(request, auth)
     if not token:
         raise _MISSING_CREDENTIALS
+    if auth.mode == "token":
+        raise _INVALID_TOKEN
     return principal_from_claims(_decode_claims(token, auth), auth)
 
 

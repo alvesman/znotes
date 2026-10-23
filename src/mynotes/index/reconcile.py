@@ -61,6 +61,10 @@ class DriftReport:
     stale: list[str]
 
 
+STATE_KEY = "drift_report"
+"""The ``app_state`` key of the last report (the file is the fallback)."""
+
+
 def report_path() -> Path:
     """Return the path of the saved drift report (user state dir)."""
     return Path(platformdirs.user_state_dir("mynotes")) / _REPORT_FILENAME
@@ -79,6 +83,12 @@ def save_drift_report(report: DriftReport) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {"saved_at": datetime.now(UTC).isoformat(), **asdict(report)}
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    try:  # shared with the web process through the database
+        from mynotes.db.state import set_state
+
+        set_state(STATE_KEY, payload)
+    except Exception:
+        logger.debug("drift report not written to app_state", exc_info=True)
     return path
 
 
@@ -88,6 +98,14 @@ def load_last_report() -> dict[str, Any] | None:
     A missing or unreadable report is not an error for ``mynotes status``;
     problems are logged and reported as no report.
     """
+    try:
+        from mynotes.db.state import get_state
+
+        shared = get_state(STATE_KEY)
+    except Exception:
+        shared = None
+    if isinstance(shared, dict):
+        return shared
     try:
         return json.loads(report_path().read_text(encoding="utf-8"))
     except FileNotFoundError:

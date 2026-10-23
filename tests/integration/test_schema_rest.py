@@ -40,6 +40,8 @@ EXPECTED_TABLES = {
     "job",
     "index_outbox",
     "acl_grant",
+    "api_token",
+    "app_state",
 }
 
 

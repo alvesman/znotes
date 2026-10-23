@@ -521,7 +521,11 @@ def watched_roots(settings: Settings) -> list[tuple[str, int, Path]]:
     stmt = (
         select(SourceRoot.id, SourceRoot.name, SourceRoot.abs_path)
         .join(Workspace, Workspace.id == SourceRoot.workspace_id)
-        .where(Workspace.name == settings.workspace, SourceRoot.enabled.is_(True))
+        .where(
+            Workspace.name == settings.workspace,
+            SourceRoot.enabled.is_(True),
+            SourceRoot.kind == "local",
+        )
         .order_by(SourceRoot.id)
     )
     with session_scope() as session:
@@ -581,6 +585,8 @@ def watchers_state_file() -> Path:
 
 
 _PUBLISH_LOCK = threading.Lock()
+STATE_KEY = "watchers"
+"""The ``app_state`` key the states are published under (the file is the fallback)."""
 
 
 def publish_states() -> None:
@@ -604,6 +610,12 @@ def publish_states() -> None:
             os.replace(tmp, path)
         except OSError:
             logger.warning("could not write watcher state to %s", path, exc_info=True)
+        try:  # the shared table lets a web process on another machine show the states
+            from mynotes.db.state import set_state
+
+            set_state(STATE_KEY, payload)
+        except Exception:
+            logger.debug("watcher state not written to app_state", exc_info=True)
 
 
 def read_watchers_state() -> dict[str, Any]:
@@ -613,6 +625,14 @@ def read_watchers_state() -> dict[str, Any]:
         The parsed JSON mapping (root name to state entry), or an empty dict
         when the file is missing or invalid.
     """
+    try:
+        from mynotes.db.state import get_state
+
+        shared = get_state(STATE_KEY)
+    except Exception:
+        shared = None
+    if isinstance(shared, dict):
+        return shared
     try:
         payload = json.loads(watchers_state_file().read_text(encoding="utf-8"))
     except (OSError, ValueError):

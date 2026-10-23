@@ -28,6 +28,12 @@
         <li><a href="/ui/help"{% if nav == "help" %} aria-current="page"{% endif %}>Help</a></li>
       </ul>
       <div class="topbar-tools">
+        {% if signed_in_user %}
+        <form class="signout" method="post" action="/ui/logout">
+          <span class="muted signed-in">{{ signed_in_user }}</span>
+          <button type="submit" class="signout-button">Sign out</button>
+        </form>
+        {% endif %}
         <div class="theme-switch" role="group" aria-label="Colour theme" data-theme-switch>
           <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
           <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>

@@ -303,6 +303,40 @@ main:focus {
   box-shadow: var(--shadow);
 }
 
+.signout {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+}
+
+.signout-button {
+  min-height: 0;
+  padding: 0.25rem 0.6rem;
+  font-size: var(--fs-sm);
+}
+
+.login-card {
+  max-width: 28rem;
+  margin: var(--sp-8) auto;
+  padding: var(--sp-6);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow);
+}
+
+.login-form {
+  display: grid;
+  gap: var(--sp-2);
+  margin: var(--sp-4) 0 0;
+}
+
+.login-error {
+  display: inline-block;
+  padding: var(--sp-1) var(--sp-2);
+}
+
 .content {
   max-width: var(--w-read);
   margin: 0 auto;

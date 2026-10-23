@@ -18,7 +18,7 @@
       {%- elif view.format in ("md", "txt") %}
       <a href="/v1/files/{{ view.document_id }}/raw">Raw</a>
       {%- elif view.format in ("docx", "pptx", "xlsx", "epub") %}
-      {%- if can_open_files %}
+      {%- if can_open_files and view.openable %}
       <button type="button" hx-post="/v1/files/{{ view.document_id }}/open" hx-swap="none">Open in app</button>
       {%- endif %}
       <a href="/v1/files/{{ view.document_id }}/raw">Download</a>

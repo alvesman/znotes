@@ -12,13 +12,25 @@ from __future__ import annotations
 
 import logging
 from typing import Any
+from urllib.parse import urlencode
 
-from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exception_handlers import http_exception_handler
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from mynotes import __version__
-from mynotes.api.routes import admin, ask, documents, files, graph, search, tags, versions
+from mynotes.api.routes import (
+    admin,
+    ask,
+    documents,
+    files,
+    graph,
+    ingest,
+    search,
+    tags,
+    versions,
+)
 from mynotes.core.errors import Ambiguous, Forbidden, NotFound
 from mynotes.llm.errors import EndpointUnavailable
 from mynotes.web import routes as web_routes
@@ -44,6 +56,7 @@ def create_app() -> FastAPI:
     app.include_router(versions.router)
     app.include_router(graph.router)
     app.include_router(admin.router)
+    app.include_router(ingest.router)
     app.include_router(web_routes.router)
     app.mount("/static", StaticFiles(directory=web_routes.STATIC_DIR), name="static")
 
@@ -94,6 +107,16 @@ def _register_error_handlers(app: FastAPI) -> None:
             status_code=503,
             content=_error_body("endpoint_unavailable", "a model endpoint is unavailable"),
         )
+
+    @app.exception_handler(HTTPException)
+    async def _http_exception(request: Request, exc: HTTPException) -> Response:
+        # A browser on a UI page gets the login page instead of a JSON 401.
+        if exc.status_code == 401 and request.url.path.startswith("/ui"):
+            if request.url.path in ("/ui/login", "/ui/logout"):
+                return await http_exception_handler(request, exc)
+            query = urlencode({"next": request.url.path})
+            return RedirectResponse(f"/ui/login?{query}", status_code=303)
+        return await http_exception_handler(request, exc)
 
     @app.exception_handler(Exception)
     async def _unhandled(request: Request, exc: Exception) -> JSONResponse:

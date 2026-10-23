@@ -220,6 +220,14 @@ def _ensure_workspace_and_roots(settings: Settings) -> list[CheckResult]:
                     row = SourceRoot(workspace_id=workspace.id, name=root.name, abs_path=abs_path)
                     session.add(row)
                     session.flush()
+                elif row.kind == "remote":
+                    return [
+                        _fail(
+                            f"root '{root.name}'",
+                            "this name belongs to a remote root fed by an agent; "
+                            "choose another name for the local folder",
+                        )
+                    ]
                 else:
                     row.abs_path = abs_path
                     if not row.enabled:
@@ -236,6 +244,7 @@ def _ensure_workspace_and_roots(settings: Settings) -> list[CheckResult]:
                 sa.select(SourceRoot).where(
                     SourceRoot.workspace_id == workspace.id,
                     SourceRoot.enabled.is_(True),
+                    SourceRoot.kind == "local",
                     SourceRoot.name.not_in(configured),
                 )
             ).scalars()
@@ -257,6 +266,55 @@ def _ensure_workspace_and_roots(settings: Settings) -> list[CheckResult]:
         if not Path(root.path).expanduser().exists():
             results.append(_warn(f"root '{root.name}'", f"path does not exist: {root.path}"))
     return results
+
+
+def _check_storage(settings: Settings) -> list[CheckResult]:
+    """The blob store of remote roots: created and writable when set; a warning when needed."""
+    directory = settings.storage.dir
+    if directory is None:
+        try:
+            with session_scope() as session:
+                remote = session.execute(
+                    sa.select(sa.func.count())
+                    .select_from(SourceRoot)
+                    .where(SourceRoot.kind == "remote", SourceRoot.enabled.is_(True))
+                ).scalar_one()
+        except Exception:
+            remote = 0
+        if remote:
+            return [
+                _warn(
+                    "storage",
+                    f"{remote} remote root(s) but storage.dir is not set: uploads will fail "
+                    "(set storage.dir or MYNOTES_STORAGE_DIR)",
+                )
+            ]
+        return [_ok("storage", "not configured (no remote roots)")]
+    path = Path(directory).expanduser()
+    try:
+        (path / "tmp").mkdir(parents=True, exist_ok=True)
+        probe = path / "tmp" / ".write-test"
+        probe.write_bytes(b"")
+        probe.unlink()
+    except OSError as exc:
+        return [_fail("storage", f"{path} is not writable: {_exc_detail(exc)}")]
+    return [_ok("storage", f"{path} (writable)")]
+
+
+def _status_storage(settings: Settings | None) -> dict[str, Any]:
+    """The blob store's directory and size for ``mynotes status``."""
+    if settings is None or settings.storage.dir is None:
+        return {"configured": False}
+    path = Path(settings.storage.dir).expanduser()
+    entry: dict[str, Any] = {"configured": True, "dir": str(path), "exists": path.is_dir()}
+    if path.is_dir():
+        try:
+            from mynotes.storage.blobs import BlobStore
+
+            entry["bytes"] = BlobStore(path).total_size()
+        except OSError as exc:
+            entry["bytes"] = f"unavailable: {_exc_detail(exc)}"
+    return entry
 
 
 def _check_opensearch(settings: Settings) -> list[CheckResult]:
@@ -393,6 +451,7 @@ def run_init(apply_migrations: bool = True) -> list[CheckResult]:
         else:
             results.extend(_ensure_workspace_and_roots(settings))
     results.extend(_check_opensearch(settings))
+    results.extend(_check_storage(settings))
     map_result = _check_max_map_count()
     if map_result is not None:
         results.append(map_result)
@@ -419,6 +478,33 @@ def _status_roots(settings: Settings | None) -> list[dict[str, Any]]:
         except Exception as exc:
             entry["source_root_id"] = f"unavailable: {_exc_detail(exc)}"
         roots.append(entry)
+    try:
+        with session_scope() as session:
+            remote = session.execute(
+                sa.select(SourceRoot)
+                .join(Workspace, Workspace.id == SourceRoot.workspace_id)
+                .where(
+                    Workspace.name == settings.workspace,
+                    SourceRoot.kind == "remote",
+                    SourceRoot.enabled.is_(True),
+                )
+                .order_by(SourceRoot.id)
+            ).scalars()
+            for row in remote:
+                roots.append(
+                    {
+                        "name": row.name,
+                        "path": f"remote (agent of {row.owner or 'unknown owner'})",
+                        "source_root_id": int(row.id),
+                        "remote": True,
+                        "owner": row.owner,
+                        "agent_last_seen_at": (
+                            row.agent_last_seen_at.isoformat() if row.agent_last_seen_at else None
+                        ),
+                    }
+                )
+    except Exception as exc:
+        roots.append({"name": "(remote roots)", "path": f"unavailable: {_exc_detail(exc)}"})
     return roots
 
 
@@ -628,6 +714,7 @@ def collect_status() -> dict[str, Any]:
     status["postgres"] = _status_postgres()
     status["unsupported"] = _status_unsupported()
     status["opensearch"] = _status_opensearch(settings)
+    status["storage"] = _status_storage(settings)
     status["endpoints"] = _status_endpoints()
     return status
 

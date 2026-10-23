@@ -452,7 +452,8 @@ How many files in your folders mynotes can't read (unsupported formats, such as 
 - **mynotes never changes your notes.** The web interface reads them; all its own data (tags, reviews, versions) lives in its database.
 - **Your chats are kept** in the mynotes database (question, answer and sources) for the **History** page, until you delete them there.
 - **Your checkbox choices and the colour theme are remembered in your browser**, not on the server: Chat's **Include old notes versions**, Search's **include notes history** and **rerank**, and the System/Light/Dark switch keep the state you last chose, in that browser only. Tags and file types are not remembered, so a new search never starts with hidden filters. Clearing the browser's site data brings back the defaults.
-- **Open in app** opens the file on the computer running mynotes. That is your computer in the standard setup.
+- **Open in app** opens the file on the computer running mynotes. That is your computer in the standard setup; it is not offered for notes uploaded by an agent (server mode), whose originals are on the owner's machine.
+- **On a shared server** you sign in with a personal token (the Sign in page); the cookie that keeps you signed in lives in your browser, and **Sign out** in the top bar removes it.
 
 ---
 
@@ -465,7 +466,7 @@ How many files in your folders mynotes can't read (unsupported formats, such as 
 | A new or edited note doesn't appear | The worker must be running (on Status, **Watcher** shows *stale* or *no state* and the queue doesn't move when it isn't). Start it with `uv run mynotes worker`, or ask whoever runs your installation. Then click **Scan now** |
 | An answer uses an outdated document | Look for a **historical** label on the sources. If a newer document should replace an older one, confirm the proposal in **Reviews → Versions**, or link them from the command line (`uv run mynotes versions add NEWER OLDER`) |
 | The answer says the notes don't contain it, but they do | Try **Search** with other words to see what is found; remove filters; rephrase the question with the project or document name |
-| **Open in app** does nothing | It opens the file on the computer running mynotes, with that computer's default application. It isn't available when mynotes runs in Docker. Use **Download** instead |
+| **Open in app** does nothing or is missing | It opens the file on the computer running mynotes, with that computer's default application. It isn't available when mynotes runs in Docker or for notes uploaded by an agent. Use **Download** instead |
 | A PDF opens at the first page instead of the cited one | Some browser PDF viewers ignore the page in the link; scroll to the page shown in the citation (`p. N`) |
 | The Graph is empty or an entity isn't found | The graph is built in the background after indexing, at roughly 10 documents per minute. Check **KG backlog** on the Status page |
 | A model endpoint shows *open* | That AI service is failing or unreachable (network, VPN, key). mynotes retries by itself; check **Last error**. Questions fail until it recovers |
