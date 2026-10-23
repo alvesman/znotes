@@ -1651,7 +1651,8 @@ def graph_backfill(
     retry_errors: bool = typer.Option(
         False,
         "--retry-errors",
-        help="Forget the groups whose extraction failed, so their documents are queued again.",
+        help="Forget the groups whose extraction failed or stayed incomplete, "
+        "so their documents are queued again.",
     ),
 ) -> None:
     """Enqueue kg_extract for latest embedded versions with uncached groups (task 40).
@@ -1670,7 +1671,9 @@ def graph_backfill(
     enqueued = 0
     with session_scope() as session:
         if retry_errors:
-            console.print(f"Forgot {clear_error_cache(session)} failed group extraction(s).")
+            console.print(
+                f"Forgot {clear_error_cache(session)} failed or incomplete group extraction(s)."
+            )
         for version_id in versions_missing_extraction(session):
             if limit is not None and enqueued >= limit:
                 break

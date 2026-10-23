@@ -512,7 +512,7 @@ def extract_group(
     if cached is not None:
         return Extraction.model_validate(cached.result)
     try:
-        extraction = _extract_or_split(session, chat, group, ctx, mode, depth=0)
+        extraction, partial = _extract_or_split(session, chat, group, ctx, mode, depth=0)
     except StructuredOutputError as exc:
         logger.warning(
             "kg extraction of group %s failed after the repair retry: %s",
@@ -524,20 +524,33 @@ def extract_group(
         )
         return Extraction()
     _cache_result(
-        session, group.content_hash, _chat_model_name(chat), extraction.model_dump(mode="json")
+        session, group.content_hash, _chat_model_name(chat), _result_json(extraction, partial)
     )
     return extraction
 
 
+def _result_json(extraction: Extraction, partial: bool) -> dict:
+    """The cache row of a result; ``partial`` marks a split group with failed parts."""
+    result = extraction.model_dump(mode="json")
+    if partial:
+        result["partial"] = True
+    return result
+
+
 def _extract_or_split(
     session: Session, chat: ChatModel, group: ChunkGroup, ctx: dict, mode: str, *, depth: int
-) -> Extraction:
+) -> tuple[Extraction, bool]:
     """Call the model for ``group``; on a failed answer extract its parts instead.
 
     The parts come from :func:`split_group` and are extracted in document
     order, each one seeing the entities the earlier parts found. A part's
     result is cached under the part's own hash (so a retry never repeats a
     part that worked); the merged result is the caller's to cache.
+
+    Returns:
+        The extraction and whether it is partial: a part failed (or was
+        cached as failed or partial), so the text is not fully covered.
+        :func:`clear_error_cache` forgets partial groups along with errors.
 
     Raises:
         StructuredOutputError: When the answer fails and the group cannot be
@@ -554,9 +567,10 @@ def _extract_or_split(
         mode=mode,
     )
     try:
-        return complete_structured(
+        extraction = complete_structured(
             chat, messages, Extraction, priority="background", max_tokens=_EXTRACT_MAX_TOKENS
         )
+        return extraction, False
     except StructuredOutputError as exc:
         parts = split_group(group) if depth < _MAX_SPLIT_DEPTH else [group]
         if len(parts) < 2:
@@ -571,14 +585,18 @@ def _extract_or_split(
         )
     results: list[Extraction] = []
     found: list[tuple[str, str]] = []
+    partial = False
     for part in parts:
         part_ctx = {**ctx, "known_entities": [*(ctx.get("known_entities") or []), *found]}
         cached = session.get(KgExtractionCache, (part.content_hash, EXTRACTOR_VERSION))
         if cached is not None:
             result = Extraction.model_validate(cached.result)
+            partial |= "error" in cached.result or bool(cached.result.get("partial"))
         else:
             try:
-                result = _extract_or_split(session, chat, part, part_ctx, mode, depth=depth + 1)
+                result, part_partial = _extract_or_split(
+                    session, chat, part, part_ctx, mode, depth=depth + 1
+                )
             except StructuredOutputError as exc:
                 logger.warning(
                     "kg extraction of part %s of group %s failed after the repair retry: %s",
@@ -592,15 +610,20 @@ def _extract_or_split(
                     _chat_model_name(chat),
                     {"error": exc.error[:_ERROR_CHARS]},
                 )
+                partial = True
                 continue
+            partial |= part_partial
             _cache_result(
-                session, part.content_hash, _chat_model_name(chat), result.model_dump(mode="json")
+                session,
+                part.content_hash,
+                _chat_model_name(chat),
+                _result_json(result, part_partial),
             )
         found.extend((entity.name, entity.type) for entity in result.entities)
         results.append(result)
     if not results:
         raise failure
-    return merge_extractions(results)
+    return merge_extractions(results), partial
 
 
 def split_group(group: ChunkGroup) -> list[ChunkGroup]:
@@ -745,12 +768,14 @@ def versions_missing_extraction(session: Session) -> list[int]:
 
 
 def clear_error_cache(session: Session) -> int:
-    """Delete the cache rows of this extractor version that hold an error instead of a result.
+    """Delete the cache rows of this extractor version that are errors or partial results.
 
     A group whose extraction failed (and, for a split group, its parts) is
-    cached as ``{"error": ...}`` so a job never retries it on its own. After
-    an extractor fix, dropping those rows lets ``graph backfill`` queue the
-    affected documents again.
+    cached as ``{"error": ...}``, and a split group with failed parts carries
+    ``"partial": true``, so a job never retries them on its own. After an
+    extractor fix, dropping those rows lets ``graph backfill`` queue the
+    affected documents again. Groups split before the marker existed are
+    recognised by their parts: one still cached next to one that is not.
 
     Returns:
         The number of rows deleted.
@@ -760,10 +785,44 @@ def clear_error_cache(session: Session) -> int:
     result = session.execute(
         delete(KgExtractionCache).where(
             KgExtractionCache.extractor_version == EXTRACTOR_VERSION,
-            KgExtractionCache.result.has_key("error"),
+            KgExtractionCache.result.has_key("error") | KgExtractionCache.result.has_key("partial"),
         )
     )
-    return int(result.rowcount or 0)
+    deleted = int(result.rowcount or 0)
+    # Groups split before the partial marker existed: their failed parts were
+    # error rows, deleted just now, so a cached part next to a missing one
+    # gives them away.
+    unmarked = [
+        group.content_hash
+        for version_id in latest_embedded_version_ids(session)
+        for group in extractable_groups(session, version_id)
+        if _split_was_partial(session, group, depth=0)
+    ]
+    if unmarked:
+        result = session.execute(
+            delete(KgExtractionCache).where(
+                KgExtractionCache.extractor_version == EXTRACTOR_VERSION,
+                KgExtractionCache.content_hash.in_(unmarked),
+            )
+        )
+        deleted += int(result.rowcount or 0)
+    return deleted
+
+
+def _split_was_partial(session: Session, group: ChunkGroup, *, depth: int) -> bool:
+    """Whether a cached group was extracted from parts of which some are no longer cached."""
+    if depth >= _MAX_SPLIT_DEPTH:
+        return False
+    parts = split_group(group)
+    if len(parts) < 2:
+        return False
+    cached = cached_group_hashes(session, [part.content_hash for part in parts])
+    if not cached:
+        return False
+    return any(
+        part.content_hash not in cached or _split_was_partial(session, part, depth=depth + 1)
+        for part in parts
+    )
 
 
 def groups_overview(session: Session) -> dict[str, int]:

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0rc6 (2026-10-23, preview of server mode)
+
+- **Knowledge graph:** a split group with a failed part is cached as a partial result, and
+  `graph backfill --retry-errors` forgets partial groups too, including those split by 0.4.0rc4
+  and rc5. Before, it forgot only the failed part, and the group counted as done, so nothing was
+  queued.
+
 ## 0.4.0rc5 (2026-10-23, preview of server mode)
 
 - **Knowledge graph:** the output cap of an extraction call goes from 3000 to 8000 tokens, and the

@@ -359,6 +359,28 @@ def test_failed_group_is_extracted_in_parts(monkeypatch: pytest.MonkeyPatch) -> 
         kg_group.content_hash,
     ]
     assert len(written[2][1]["entities"]) == 2
+    assert "partial" not in written[2][1]
+
+
+def test_group_with_a_failed_part_is_cached_as_partial(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When one half keeps failing, the group keeps the other half's result, marked partial."""
+    written = _cache_recorder(monkeypatch)
+    kg_group = group("Alpha is the project.\n\nBeta fails.\n\nGamma fails too.", tokens=120)
+
+    def answer(messages: Sequence[ChatMessage]) -> str:
+        text = messages[1].content.split("Text:\n", 1)[1]
+        if text.strip() == "Alpha is the project.":
+            return _entity_json(("Alpha", "Project"))
+        return "not json"
+
+    extraction = extract_group(FakeSession(), FakeChat(answer), kg_group, {}, "full")
+
+    assert [entity.name for entity in extraction.entities] == ["Alpha"]
+    results = dict(written)
+    assert results[kg_group.content_hash].get("partial") is True
+    halves = split_group(kg_group)
+    assert "partial" not in results[halves[0].content_hash]
+    assert list(results[halves[1].content_hash]) == ["error"]  # both its quarters failed
 
 
 def test_unsplittable_failure_is_cached_as_error(monkeypatch: pytest.MonkeyPatch) -> None:

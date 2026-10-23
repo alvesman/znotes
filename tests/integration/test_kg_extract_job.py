@@ -38,7 +38,13 @@ from mynotes.db.models import (
     Workspace,
 )
 from mynotes.db.session import reset_engine, session_scope
-from mynotes.graph.extract import clear_error_cache, versions_missing_extraction
+from mynotes.graph.extract import (
+    cached_group_hashes,
+    clear_error_cache,
+    extractable_groups,
+    split_group,
+    versions_missing_extraction,
+)
 from mynotes.graph.ontology import EXTRACTOR_VERSION
 from mynotes.jobs import pipeline
 from mynotes.jobs.registry import JobContext, Priority
@@ -397,8 +403,66 @@ def test_invalid_json_is_cached_as_error_and_never_retried(
 
     with session_scope() as session:
         assert version_id not in versions_missing_extraction(session)
-        assert clear_error_cache(session) == len(rows)
+        session.add(
+            KgExtractionCache(
+                content_hash=f"partial-{uuid4().hex}",
+                extractor_version=EXTRACTOR_VERSION,
+                model="fake",
+                result={"entities": [], "relations": [], "partial": True},
+            )
+        )
+        session.flush()
+        assert clear_error_cache(session) == len(rows) + 1, "errors and partial results"
         assert version_id in versions_missing_extraction(session), "backfill queues it again"
+
+
+_NOTE_SPLIT = """# Partes
+
+A Alpha é o projeto principal desta nota e o texto desta parte fala apenas dele, com
+palavras suficientes para que o grupo passe do mínimo de tokens que o extrator exige.
+
+A Beta é a ferramenta que faz o modelo falhar nesta parte, de novo com palavras
+suficientes para encher a linha e dar ao grupo um tamanho razoável para o teste.
+
+A Gama também faz o modelo falhar, numa só linha para que esta parte não se divida mais.
+"""
+
+
+def test_retry_errors_forgets_groups_split_before_the_marker(
+    env: KgEnv, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A partial group without the marker is found through its parts and forgotten."""
+    _document_id, version_id = ingest(env, "notes/partes.md", _NOTE_SPLIT)
+
+    def answer(messages: list) -> str:
+        text = messages[1].content.split("Text:\n", 1)[1]
+        if "Beta" in text or "Gama" in text:
+            return "not json"
+        return extraction_json("Alpha")
+
+    patch_chat(monkeypatch, FakeChat(answer))
+    run_kg_extract(env, version_id)
+
+    with session_scope() as session:
+        (top,) = extractable_groups(session, version_id)
+        row = session.get(KgExtractionCache, (top.content_hash, EXTRACTOR_VERSION))
+        assert row is not None and row.result.get("partial") is True
+        assert [entity["name"] for entity in row.result["entities"]] == ["Alpha"]
+        # Strip the marker, as rows written before it existed look.
+        row.result = {key: value for key, value in row.result.items() if key != "partial"}
+        session.flush()
+        assert version_id not in versions_missing_extraction(session)
+
+        deleted = clear_error_cache(session)
+
+        assert deleted >= 2, "the error rows of the failed parts plus the group itself"
+        assert session.get(KgExtractionCache, (top.content_hash, EXTRACTOR_VERSION)) is None
+        assert version_id in versions_missing_extraction(session)
+        halves = split_group(top)
+        parts = [*halves, *(part for half in halves for part in split_group(half))]
+        assert cached_group_hashes(session, [part.content_hash for part in parts]), (
+            "the part that worked stays cached"
+        )
 
 
 def test_extract_status_reports_counts(env: KgEnv, monkeypatch: pytest.MonkeyPatch) -> None:
