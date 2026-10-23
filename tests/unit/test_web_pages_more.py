@@ -382,6 +382,7 @@ def test_graph_page_with_entity_shows_card_attributes_timeline(
     assert "Projeto Alfa –uses→ OpenSearch" in response.text  # noqa: RUF001
     assert 'data-entity-id="4"' in response.text
     assert 'id="graph-hops"' in response.text
+    assert 'id="graph-expand"' in response.text
 
 
 def test_graph_entity_partial_renders_candidates_when_ambiguous(

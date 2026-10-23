@@ -377,7 +377,8 @@ Below the card, the entity and its connections are drawn as a network:
 - each **line** is a relation, labelled with its kind, such as `works_on`, `uses`, `part_of`, `depends_on`, `owned_by` or `replaces`, or with a fact such as `status=active`; a **dashed** line is a relation that no longer holds (it ended or was replaced);
 - **Hops** chooses how far out to look: **1** shows direct connections only, **2** also shows the connections of those connections (busier, but reveals indirect links);
 - **click a circle** to re-centre the diagram on that entity and see its connections (the card and timeline above stay on the first entity; search for the new one to see its card);
-- **click a line** to see, under the diagram, the documents that support that relation.
+- **click a line** to see, under the diagram, the documents that support that relation;
+- **Expand** makes the diagram fill the whole window; **Restore** (or the Esc key) brings the page back.
 
 Drag circles to untangle the drawing, scroll to zoom, and drag the background to move around.
 

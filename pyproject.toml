@@ -1,6 +1,6 @@
 [project]
 name = "mynotes"
-version = "0.4.0rc6"
+version = "0.4.0rc7"
 description = "Ask questions about a folder of notes: local RAG with hybrid search, citations, versions and a knowledge graph."
 readme = "README.md"
 license = "AGPL-3.0-or-later"

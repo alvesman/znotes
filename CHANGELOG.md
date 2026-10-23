@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0rc7 (2026-10-23, preview of server mode)
+
+- **Access control:** an entity none of whose evidence a user may read no longer exists for that
+  user: the entity card, the neighbours, the timeline and the attribute values answer "not found"
+  and the name is not listed among candidates. Before, the card showed the name, type and aliases
+  with empty counts, and the graph page drew a nameless node (seen with an `admin` token that
+  had no read grant; `mynotes acl grant admin ""` gives an admin everything).
+- **Graph page:** an **Expand** button makes the diagram fill the whole window; **Restore** or
+  Esc brings the page back. A 404 for the neighbourhood now reads "This entity has no evidence
+  you can see."
+
 ## 0.4.0rc6 (2026-10-23, preview of server mode)
 
 - **Knowledge graph:** a split group with a failed part is cached as a partial result, and

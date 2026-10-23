@@ -230,13 +230,45 @@
       .catch(function (error) {
         console.error("graph neighbourhood", error);
         container.textContent = "";
-        container.appendChild(el("p", "empty", "The neighbourhood could not be loaded."));
+        var message = error.message === "HTTP 404"
+          ? "This entity has no evidence you can see."
+          : "The neighbourhood could not be loaded.";
+        container.appendChild(el("p", "empty", message));
       });
   }
+
+  // Expanded mode: the diagram fills the window (body.graph-full, see app.css).
+  function setExpanded(expanded) {
+    document.body.classList.toggle("graph-full", expanded);
+    var button = document.getElementById("graph-expand");
+    if (button) {
+      button.textContent = expanded ? "Restore" : "Expand";
+      button.setAttribute("aria-pressed", expanded ? "true" : "false");
+    }
+    var graph = current.graph;
+    if (graph && !graph.destroyed()) {
+      // The container's size changed under the canvas: redraw and refit.
+      window.requestAnimationFrame(function () {
+        graph.resize();
+        graph.fit(undefined, 30);
+      });
+    }
+  }
+
+  function isExpanded() {
+    return document.body.classList.contains("graph-full");
+  }
+
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && isExpanded()) {
+      setExpanded(false);
+    }
+  });
 
   function init(root) {
     var container = root.querySelector("#graph-view");
     if (!container || !container.dataset.entityId) {
+      setExpanded(false); // a new search without a diagram leaves expanded mode
       return;
     }
     var hops = root.querySelector("#graph-hops");
@@ -244,6 +276,13 @@
       hops.addEventListener("change", function () {
         loadNeighbors(container, hops.value);
       });
+    }
+    var expand = root.querySelector("#graph-expand");
+    if (expand) {
+      expand.addEventListener("click", function () {
+        setExpanded(!isExpanded());
+      });
+      setExpanded(isExpanded()); // a swapped-in panel keeps the current mode and label
     }
     loadNeighbors(container, hops ? hops.value : "1");
   }

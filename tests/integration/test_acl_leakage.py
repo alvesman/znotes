@@ -724,28 +724,43 @@ def test_secret_file_and_document_denied_for_alice(seeded_env: AclEnv) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_entity_card_hides_the_restricted_summary(seeded_env: AclEnv) -> None:
-    """Alice's Projeto Omega card has no summary, documents or relations."""
+def test_entity_without_visible_evidence_does_not_exist_for_alice(seeded_env: AclEnv) -> None:
+    """Projeto Omega, mentioned only in the secret note, is not found for alice at all."""
     with _client() as client:
-        alice = client.get(
-            "/v1/graph/entities", params={"q": "Projeto Omega"}, headers=_bearer("alice")
-        )
         admin = client.get(
             "/v1/graph/entities", params={"q": "Projeto Omega"}, headers=_bearer("admin")
         )
+        assert admin.status_code == 200
+        admin_card = admin.json()
+        omega_id = admin_card["id"]
+        alice = {
+            "card": client.get(
+                "/v1/graph/entities", params={"q": "Projeto Omega"}, headers=_bearer("alice")
+            ),
+            "card by id": client.get(
+                "/v1/graph/entities", params={"q": f"#{omega_id}"}, headers=_bearer("alice")
+            ),
+            "neighbors": client.get(
+                f"/v1/graph/entities/{omega_id}/neighbors", headers=_bearer("alice")
+            ),
+            "timeline": client.get(
+                "/v1/graph/timeline", params={"entity": "Projeto Omega"}, headers=_bearer("alice")
+            ),
+        }
 
-    assert alice.status_code == 200
-    alice_card = alice.json()
-    assert alice_card["description"] == "", "the shared summary must stay hidden"
-    assert alice_card["top_documents"] == []
-    assert alice_card["mention_count_current"] == 0
-    assert alice_card["relations_out"] == 0
-    assert alice_card["relations_in"] == 0
-
-    assert admin.status_code == 200
-    admin_card = admin.json()
+    for what, response in alice.items():
+        assert response.status_code == 404, what
+        assert "candidates" not in response.json(), what
+        if "Omega" not in str(response.request.url):  # the error echoes the caller's own query
+            assert "Omega" not in response.text, f"{what} must not reveal the name"
     assert admin_card["description"] != ""
     assert any(doc["rel_path"] == _SECRET_PATH for doc in admin_card["top_documents"])
+    from mynotes.core import service
+    from mynotes.core.errors import NotFound
+
+    with pytest.raises(NotFound):
+        service.entity_attributes(omega_id, principal=_principal(seeded_env, "alice"))
+    assert service.entity_attributes(omega_id, principal=_principal(seeded_env, "admin")) == []
 
 
 # ---------------------------------------------------------------------------

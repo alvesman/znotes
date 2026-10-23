@@ -1044,11 +1044,16 @@ def _entity_candidates(entities: Sequence[Any]) -> list[dict[str, Any]]:
     ]
 
 
-def _resolve_entity(session: Session, ref: str) -> int:
+def _resolve_entity(session: Session, ref: str, acl_prefixes: Sequence[str] | None = None) -> int:
     """Resolve an entity reference (a name, or ``#<id>``) to one id.
 
     ``#<id>`` names an entity by its id and is never ambiguous: the web UI's
     candidate links use it, since two candidates can share a name.
+
+    For a restricted caller (``acl_prefixes`` not None) only entities with
+    some mention or relation evidence inside the prefixes exist: the others
+    are not found, and never listed as candidates, so one user's notes do not
+    reveal their entity names to another.
 
     Raises:
         NotFound: When nothing matches.
@@ -1056,18 +1061,34 @@ def _resolve_entity(session: Session, ref: str) -> int:
     """
     explicit_id = entity_id_ref(ref)
     if explicit_id is not None:
-        if session.get(KgEntity, explicit_id) is None:
+        if session.get(KgEntity, explicit_id) is None or not _entity_visible(
+            session, explicit_id, acl_prefixes
+        ):
             raise NotFound(f"no entity matches {ref!r}")
         return explicit_id
     matches = find_entities(session, ref)
+    if acl_prefixes is not None and matches:
+        visible = _allowed_entity_ids(session, [int(m.id) for m in matches], acl_prefixes)
+        matches = [m for m in matches if int(m.id) in visible]
     if len(matches) == 1:
         return int(matches[0].id)
     if not matches:
         cleaned = ref.strip()
-        if cleaned.isdigit() and session.get(KgEntity, int(cleaned)) is not None:
+        if (
+            cleaned.isdigit()
+            and session.get(KgEntity, int(cleaned)) is not None
+            and _entity_visible(session, int(cleaned), acl_prefixes)
+        ):
             return int(cleaned)
         raise NotFound(f"no entity matches {ref!r}")
     raise Ambiguous(f"{len(matches)} entities match {ref!r}", _entity_candidates(matches))
+
+
+def _entity_visible(session: Session, entity_id: int, acl_prefixes: Sequence[str] | None) -> bool:
+    """Whether a restricted caller may see the entity at all (unrestricted: always)."""
+    if acl_prefixes is None:
+        return True
+    return entity_id in _allowed_entity_ids(session, [entity_id], acl_prefixes)
 
 
 def entity_card(ref: str, *, principal: Principal = LOCAL) -> dict[str, Any]:
@@ -1088,7 +1109,7 @@ def entity_card(ref: str, *, principal: Principal = LOCAL) -> dict[str, Any]:
         Ambiguous: When several entities match (with candidates).
     """
     with session_scope() as session:
-        entity_id = _resolve_entity(session, ref)
+        entity_id = _resolve_entity(session, ref, principal.acl_prefixes)
         card = build_entity_card(session, entity_id)
         if principal.acl_prefixes is not None:
             return _restricted_card(session, card, entity_id, principal.acl_prefixes)
@@ -1206,7 +1227,7 @@ def entity_neighbors(ref: str, hops: int = 1, *, principal: Principal = LOCAL) -
         Ambiguous: When several entities match (with candidates).
     """
     with session_scope() as session:
-        entity_id = _resolve_entity(session, ref)
+        entity_id = _resolve_entity(session, ref, principal.acl_prefixes)
         sub = fetch_subgraph(session, [entity_id], max(1, hops))
         if principal.acl_prefixes is not None:
             sub = filter_graph_by_acl(session, sub, principal.acl_prefixes)
@@ -1340,7 +1361,9 @@ def entity_attributes(entity_id: int, *, principal: Principal = LOCAL) -> list[A
         NotFound: When the entity does not exist.
     """
     with session_scope() as session:
-        if session.get(KgEntity, entity_id) is None:
+        if session.get(KgEntity, entity_id) is None or not _entity_visible(
+            session, entity_id, principal.acl_prefixes
+        ):
             raise NotFound(f"no kg entity with id {entity_id}")
         acl_prefixes = principal.acl_prefixes
         facts_by_attribute: dict[str, list[AttributeFact]] = {}
@@ -1569,7 +1592,7 @@ def timeline(ref: str, *, principal: Principal = LOCAL) -> list[TimelineItem]:
                 else tag_timeline(session, workspace_id or 0, cleaned)
             )
         else:
-            entity_id = _resolve_entity(session, cleaned)
+            entity_id = _resolve_entity(session, cleaned, principal.acl_prefixes)
             items = entity_timeline(session, entity_id)
         if principal.acl_prefixes is None:
             return items
