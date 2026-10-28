@@ -2,7 +2,7 @@
 
 mynotes answers questions about a folder of notes. Point it at your Markdown notes (and PDF, Word, PowerPoint, Excel, HTML and EPUB files) and ask in plain language: it finds the relevant passages with hybrid (vector + keyword) search and writes an answer that cites them. It keeps working as your notes change: it re-reads only what changed, tracks versions so answers use the current one while history stays searchable, and builds a knowledge graph of the people, projects and tools your notes mention. A web interface (chat with history, search, document view, reviews, graph explorer), a command line and an MCP server for Claude are included.
 
-Everything runs on your machine: PostgreSQL is the source of truth and OpenSearch the search index, both in Docker. The AI models are yours to choose: any OpenAI-compatible server for embeddings and chat (OpenAI, Ollama on your own computer, vLLM, …), and optionally a reranker.
+By default everything runs on your machine: PostgreSQL is the source of truth and OpenSearch the search index, both in Docker. The AI models are yours to choose: any OpenAI-compatible server for embeddings and chat (OpenAI, Ollama on your own computer, vLLM, …), and optionally a reranker. For a team, or your own notes on several machines, a server mode runs one shared mynotes with a small agent on each machine that uploads its folder; each person signs in and sees only their own notes.
 
 ## Quick start (Docker)
 
@@ -23,14 +23,17 @@ You need Docker with Docker Compose, about 6 GB of free memory, and access to an
    ```
 4. Open http://127.0.0.1:8765/ui/chat. The worker indexes your notes in the background; **Status** shows its progress.
 
-To update later: `docker compose pull && docker compose up -d`. Details, backups and the trade-offs against a native install are in [deployment/](deployment/README.md).
+To update later: `docker compose pull && docker compose up -d`. Details, backups, the native install and server mode, with the trade-offs between them, are in [deployment/](deployment/README.md).
 
 ## Documentation
 
-- **[User manual](docs/user-manual.md)**: installation (native or Docker), choosing models, asking and searching, filters, the web interface, Claude (MCP), keeping the index up to date, tags, versions, the knowledge graph, configuration, backups, troubleshooting and the full command reference.
+- **[Deployment](deployment/README.md)**: the three ways to run mynotes (databases in Docker with mynotes native, everything in Docker, or a server with agents) and how they compare.
+- **[User manual](docs/user-manual.md)**: native installation, choosing models, asking and searching, filters, the web interface, Claude (MCP), keeping the index up to date, tags, versions, the knowledge graph, configuration, backups, troubleshooting and the full command reference.
 - **[Web interface manual](docs/web-interface-manual.md)**: each page of the browser interface.
 - **[MCP guide](docs/mcp.md)**: using mynotes from Claude Code and Claude Desktop.
 - **[How retrieval ranks the notes](docs/retrieval.md)**: candidate sources, fusion, reranking and context selection, with the settings that tune them.
+- **[Backup and restore](docs/backup.md)**: what `mynotes backup` saves and how a restore rebuilds the search index.
+- **[HTTP API](docs/api.md)**: authentication, the query and review endpoints, and the ingest API the server-mode agent uses.
 
 ## Development
 

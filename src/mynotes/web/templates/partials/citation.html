@@ -2,7 +2,7 @@
 {%- if section %}#sec-{{ section|slug }}{%- endif -%}
 {%- endmacro %}
 
-{% macro cite(item, can_open_files) %}
+{% macro cite(item, can_open_files, remote_ids=()) %}
 <span class="citation">
   {%- if item.n %}<span class="cite-n">[{{ item.n }}]</span>{% endif %}
   <span class="cite-title">{{ item.title or item.path }}</span>
@@ -22,7 +22,7 @@
     {%- elif item.format == "html" %}
     <a href="/v1/files/{{ item.document_id }}/raw" target="_blank" rel="noopener">Open</a>
     {%- elif item.format in ("docx", "pptx", "xlsx", "epub") %}
-    {%- if can_open_files %}
+    {%- if can_open_files and item.document_id not in remote_ids %}
     <button type="button" class="open-in-app" hx-post="/v1/files/{{ item.document_id }}/open"
             hx-swap="none">Open in app</button>
     {%- endif %}

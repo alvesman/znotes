@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.4.0rc8 (2026-10-28, preview of server mode)
+
+- **Access control:** a token reads notes only with the `web` or `admin` scope. An agent's token
+  (only `ingest:<root>`) still uploads its root but reads nothing, and the sign-in page refuses
+  it ("That token is for an agent and cannot sign in"). Before, it could sign in and read its
+  user's notes. **Upgrading:** anyone who signs in with an agent token needs a web token
+  (`mynotes token create --user NAME --name web --web`).
+- **Access control:** `POST /v1/scan` needs an admin and answers 403 otherwise. Before, the
+  admin check never ran, so any valid token could start a scan of the server's local roots.
+- **Web UI:** Status, and the version, entity-merge and tag-merge review actions, are shown only
+  to admins; others see the review proposals with a note instead of buttons that answered 403.
+  Opening `/ui/status` directly gives a short 403 page instead of a JSON error.
+- **Web UI:** citations of notes uploaded by an agent no longer offer **Open in app**, which
+  could not work for them (the original is on the owner's machine); **Download** and **View
+  text** remain.
+- **`mynotes service logs`:** its `--component` help offers only `worker` or `web`; `all` was
+  never supported.
+- **Documentation:** reviewed throughout for server mode. The server setup now grants the admin
+  read access (`mynotes acl grant admin ""`, without which an admin sees no notes); the
+  deployment trade-offs compare all three modes; the API guide lists every endpoint; the user
+  manual has a table of the settings `.env` can override and the OIDC options; the example
+  configurations of `deployment/` gained the newer retrieval and graph settings (their
+  `retrieval.graph_expansion` was a stale `false`; the default is `auto`).
+
 ## 0.4.0rc7 (2026-10-23, preview of server mode)
 
 - **Access control:** an entity none of whose evidence a user may read no longer exists for that

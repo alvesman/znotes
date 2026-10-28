@@ -3,9 +3,13 @@
 {% block content_class %} content--wide{% endblock %}
 {% block content %}
 <h1>Status</h1>
+{% if data is none %}
+<p class="muted">The status page is for the administrator of this mynotes server.</p>
+{% else %}
 <div class="form-row">
   <button type="button" hx-post="/v1/scan" hx-swap="none">Scan now</button>
   <span class="muted">panel refreshes every 30 s</span>
 </div>
 {% include "partials/status_panel.html" %}
+{% endif %}
 {% endblock %}

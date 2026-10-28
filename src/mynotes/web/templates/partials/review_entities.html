@@ -15,12 +15,16 @@
         </div>
       </div>
       <p class="review-evidence">name similarity {{ "%.2f"|format(row.pair.similarity) }}</p>
+      {%- if is_admin %}
       <div class="review-actions">
         <button type="button" hx-post="/ui/reviews/entities/{{ row.keep_id }}/{{ row.drop_id }}/merge"
                 hx-target="#review-entities" hx-swap="outerHTML">Merge (keep the older)</button>
         <button type="button" hx-post="/ui/reviews/entities/{{ row.pair.a_id }}/{{ row.pair.b_id }}/distinct"
                 hx-target="#review-entities" hx-swap="outerHTML">Keep separate</button>
       </div>
+      {%- else %}
+      <p class="muted review-admin-note">The administrator merges entities or keeps them separate.</p>
+      {%- endif %}
     </li>
     {% else %}
     <li class="empty">No entity merge candidates.</li>

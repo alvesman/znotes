@@ -1,7 +1,16 @@
 # Web UI
 
+*Developer notes on how the web UI is built. The user guide is the
+[web interface manual](web-interface-manual.md).*
+
 The web UI (tasks 47/48) is server-rendered Jinja2 + HTMX served by the same
 FastAPI app as the JSON API (`mynotes serve`):
+
+- Sign-in (server mode, `auth.mode: token`): `/ui/login` takes a personal token,
+  checks it with `tokens.verify_token` and sets the `mynotes_token` cookie
+  (HttpOnly, 30 days, `Secure` when the request or `X-Forwarded-Proto` is https);
+  `POST /ui/logout` deletes it. Pages show the signed-in user and a Sign out
+  button in the menu bar. In `none` mode there is no sign-in.
 
 - Chat: `/ui/chat` — streams `POST /v1/ask/stream` (SSE) with `fetch` +
   `response.body.getReader()`. Answers are rendered as Markdown by
@@ -38,6 +47,8 @@ FastAPI app as the JSON API (`mynotes serve`):
   history and rerank) are remembered per browser in `localStorage` by
   `static/prefs.js`; filters (tags, formats) are not.
 - Citations ("View note" / "View text") open the document page in a new tab;
+  "Open in app" is left out for notes of remote roots (`service.remote_document_ids`;
+  the stream's `sources` event marks them `openable: false` for `chat.js`);
   results no longer show "Raw" (the document page has it).
 - Document view: `/ui/documents/{id}` — extracted Markdown rendered
   server-side (`markdown_it`, raw HTML disabled, tables enabled), headings
@@ -54,7 +65,9 @@ FastAPI app as the JSON API (`mynotes serve`):
   `/v1/tags/...` plus a `Merge into…` form posting JSON to `/v1/tags/merge`
   (vendored `json-enc` extension), and entity candidates merge or mark
   distinct via `POST /ui/reviews/entities/{keep}/{drop}/merge|{a}/{b}/distinct`,
-  which re-render the tab. The tab partials re-render on the
+  which re-render the tab. Those actions, and the tag `Merge into…` form, are rendered
+  only for admins (`is_admin`, set by `_render` from the request's principal); others
+  see a note instead. The tab partials re-render on the
   `mynotes:versions-changed` / `mynotes:tags-changed` events that those API
   responses carry as `HX-Trigger` headers.
 - Graph explorer: `/ui/graph?entity=REF` — entity search box (HTMX lookup;
@@ -64,7 +77,10 @@ FastAPI app as the JSON API (`mynotes serve`):
   neighbourhood view fed by `/v1/graph/entities/{ref}/neighbors?hops=N`
   (nodes colored by type, edges labeled with the relation type, non-active
   edges dashed, edge click shows the evidence documents) and a dated timeline.
-- Status: `/ui/status` — dashboard over the facade `status()` (roots with
+  An Expand button makes the diagram fill the window (Restore or Esc undo it).
+  An entity none of whose evidence the caller may read is "not found" (the
+  neighbourhood 404 reads "This entity has no evidence you can see.").
+- Status: `/ui/status` (admins only: the menu hides it, others get a 403 page) — dashboard over the facade `status()` (roots with
   watcher state and last scans, queue by status and type, KG backlog with ETA,
   alias → physical index with doc counts and drift report, `inspect_live`
   problems highlighted, endpoint snapshots, unsupported/placeholder files).

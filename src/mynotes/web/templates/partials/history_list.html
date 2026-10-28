@@ -22,7 +22,7 @@
         {% if turn.citations %}
         <div class="citations">
           {% for item in turn.citations %}
-          <div class="citation-row"{% if item.n %} id="h{{ turn.id }}-cite-{{ item.n }}"{% endif %}>{{ cite(item, can_open_files) }}</div>
+          <div class="citation-row"{% if item.n %} id="h{{ turn.id }}-cite-{{ item.n }}"{% endif %}>{{ cite(item, can_open_files, remote_ids) }}</div>
           {% endfor %}
         </div>
         {% endif %}

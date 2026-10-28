@@ -84,11 +84,27 @@ def _event_stream(
                     conversation_id,
                     standalone,
                 )
-            yield _sse_frame(event.type, _event_payload(event))
+            payload = _event_payload(event)
+            if event.type == "sources" and principal.can_open_files:
+                payload = {"citations": _mark_openable(citations)}
+            yield _sse_frame(event.type, payload)
     except Exception:
         logger.exception("ask stream for %r failed", question)
         yield _sse_frame("error", {"message": _STREAM_ERROR_MESSAGE})
         yield _sse_frame("done", {"relevant": False, "timings_ms": {}})
+
+
+def _mark_openable(citations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The citations, with ``openable: false`` on notes uploaded by an agent (no "Open in app")."""
+    remote = service.remote_document_ids(
+        citation["document_id"]
+        for citation in citations
+        if citation.get("format") in service.OPEN_IN_APP_FORMATS and "document_id" in citation
+    )
+    return [
+        {**citation, "openable": False} if citation.get("document_id") in remote else citation
+        for citation in citations
+    ]
 
 
 def _save_chat(

@@ -11,7 +11,7 @@ transaction, so callers never see a session.
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -816,6 +816,28 @@ def open_original(document_id: int, *, principal: Principal = LOCAL) -> None:
     if kind == "remote":
         raise Forbidden("this note was uploaded by an agent; open it on the owner's machine")
     open_in_default_app(resolve_file(document_id, principal=principal).path)
+
+
+OPEN_IN_APP_FORMATS = frozenset({"docx", "pptx", "xlsx", "epub"})
+"""The formats the UI offers "Open in app" for (the others open in the browser)."""
+
+
+def remote_document_ids(document_ids: Iterable[int]) -> set[int]:
+    """The documents among ``document_ids`` that belong to a remote root.
+
+    Their originals are on the owner's machine, so "Open in app" is not offered
+    for them (:func:`open_original` refuses them).
+    """
+    ids = {int(document_id) for document_id in document_ids}
+    if not ids:
+        return set()
+    with session_scope() as session:
+        rows = session.execute(
+            select(Document.id)
+            .join(SourceRoot, SourceRoot.id == Document.source_root_id)
+            .where(Document.id.in_(ids), SourceRoot.kind == "remote")
+        ).scalars()
+        return {int(document_id) for document_id in rows}
 
 
 def list_tags(prefix: str | None = None, *, principal: Principal = LOCAL) -> list[TagView]:

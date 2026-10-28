@@ -72,7 +72,13 @@ It opens the Chat page. Bookmark it for next time.
 
 If the address doesn't work, see [Troubleshooting](#12-troubleshooting). If mynotes was started on another port (for example with `uv run mynotes serve --port 8800`), use that number instead of `8765`. With the all-in-Docker setup ([deployment/full-stack](../deployment/full-stack/README.md)), the web interface runs automatically on the same address.
 
+### On a shared server
+
+If your notes are on a mynotes server (server mode: [deployment/server](../deployment/server/README.md)), there is nothing to start: open the address your administrator gave you, such as `https://notes.example.org/`. The **Sign in** page asks for your personal token (it starts with `mn_`); paste it and click **Sign in**. You stay signed in in that browser for 30 days, or until you click **Sign out** at the right of the menu bar, next to your user name. You see only your own notes.
+
 ### What else must be running
+
+On a shared server the administrator looks after this; on your own computer:
 
 - **The databases** must be running (`docker compose up -d` in the mynotes folder), otherwise pages show errors.
 - **The worker** must be running for mynotes to notice new or changed notes, and for the **Scan now** button to have an effect. Without it you can still ask about everything already indexed. See [Status](#10-status-is-everything-working) to check.
@@ -95,6 +101,8 @@ Every page has the same menu bar at the top:
 
 Document pages have no menu entry: you reach them from search results, citations, reviews and the graph.
 
+On a shared server, **Status** is for the administrator and only appears in their menu. Some review actions (confirming version links, merging entities and tags) are also for the administrator: other people see the proposals, with a note instead of the buttons.
+
 On a phone the menu folds behind a **Menu** button at the top. The switch at the right end of the bar chooses the colour theme: **System** follows your device's light or dark setting, **Light** and **Dark** force one. The choice is remembered in that browser. Keyboard users can press Tab once on any page to reach a "Skip to content" link.
 
 ---
@@ -116,7 +124,7 @@ The answer appears word by word as it is written. While it is being written, the
 Each question you ask appears as a block with three parts:
 
 1. **Your question.**
-2. **The answer.** Numbers in square brackets, such as `[1]` or `[2]`, are citations: click one to jump to that source in the list below.
+2. **The answer**, formatted as it arrives: headings, lists, tables, code blocks (with a **Copy** button in the corner), bold and italic text. Numbers in square brackets, such as `[1]` or `[2]`, are citations: click one to jump to that source in the list below.
 3. **The sources**, numbered to match the citations. Each line shows:
    - the number, such as `[1]`;
    - the document's title and its path inside your notes folder;
@@ -132,7 +140,7 @@ What the links do depends on the type of file:
 | PDF | **Open** | Opens the PDF in a new browser tab, at the cited page |
 | Markdown, text | **View note** | Opens the [document page](#7-the-document-page) at the cited section, in a new window |
 | Web page (HTML) | **Open** | Opens the original page in a new tab (with its scripts disabled, for safety) |
-| Word, PowerPoint, Excel, e-book | **Open in app** | Opens the original file in its usual application on the computer running mynotes |
+| Word, PowerPoint, Excel, e-book | **Open in app** | Opens the original file in its usual application on the computer running mynotes (not offered on a shared server) |
 | | **Download** | Downloads the original file |
 | | **View text** | Opens the document page at the cited section, in a new window, showing the text mynotes extracted |
 
@@ -143,20 +151,17 @@ If your notes don't contain the answer, mynotes says so in its answer, and a lin
 - Ask in **Portuguese or English**: the answer comes in the language of your question, whatever the language of the documents.
 - **Upper/lower case and accents don't matter**: *prazo*, *Prazo* and *PRAZO* find the same documents, and so do *informação* and *informacao*.
 
-### Each question stands alone
+### Follow-up questions
 
-mynotes doesn't remember earlier questions. Earlier questions and answers stay on the page for reference, but a follow-up such as *And who leads it?* doesn't know what *it* is. Write each question in full: *Who leads the Alfa project?*
+Follow-up questions work: after "O que é o Portainer?" you can ask "e qual é a porta?". mynotes rewrites a follow-up into a complete question before searching your notes, and shows it under yours in italics, for example *Searched as: Qual é a porta do Portainer?*. If that line misread you, ask again in full. The answer also sees the last three questions and answers of the chat (each earlier answer cut to about 1,200 characters, so at most about 1,000 tokens in all); anything said more than three questions ago is forgotten.
 
-Reloading the page clears the conversation.
+A chat ends when you reload or leave the page; **Continue this chat** in [History](#6-history-past-questions) picks it up again.
 
 ### Narrowing a question
 
 Under the question box:
 
 - **Include old notes versions**: ticked by default, so answers can use older, replaced versions of documents. Untick it for questions about the current state of things only. Your choice is remembered in this browser (see below).
-- Press **Enter** to ask; **Shift+Enter** adds a new line.
-- **Follow-up questions** work: after "O que é o Portainer?" you can ask "e qual é a porta?". mynotes rewrites a follow-up into a complete question before searching your notes, and shows it under yours in italics, for example *Searched as: Qual é a porta do Portainer?*. If that line misread you, ask again in full. The answer also sees the last three questions and answers of the chat (each earlier answer cut to about 1,200 characters, so at most about 1,000 tokens in all); anything said more than three questions ago is forgotten. A chat ends when you reload or leave the page; **Continue this chat** in History picks it up again.
-- Answers are formatted as they arrive: headings, lists, tables, code blocks, bold and italic text. `[1]` markers link to the numbered sources below the answer. Code blocks have a **Copy** button in the corner that puts the block's text on the clipboard.
 - **tags, comma-separated**: only use documents with these tags, for example `clienta, proposal`.
 
 You can also write filters inside the question itself:
@@ -237,7 +242,7 @@ Up to 20 results are found, best first. With **rerank** ticked (the default), re
 
 **Picking a chat up again.** Open a chat and click **Continue this chat**: the Chat page opens with its earlier questions and answers, and anything you ask next is added to that same chat in History. **Start a new chat** (under the conversation) or opening Chat from the menu starts a fresh one. Chats saved before 7 October 2026 can be continued too.
 
-Follow-up questions understand the chat they belong to, including a chat continued from History: see **Follow-up questions** in [Chat](#4-chat-asking-questions).
+Follow-up questions understand the chat they belong to, including a chat continued from History: see [Follow-up questions](#follow-up-questions).
 
 **Deleting old chats.** The box at the top deletes:
 
@@ -301,7 +306,7 @@ The document's text as mynotes extracted it, with headings, lists and tables. Co
 
 mynotes makes three kinds of guesses by itself. Clear cases are applied automatically; uncertain ones wait here for you. Nothing is lost if you leave them: they wait until you decide.
 
-Click **Reviews** in the menu bar, then choose a tab: **Versions** (shown first), **Tags** or **Entities**. Each list refreshes after every decision; the item you decided on disappears.
+Click **Reviews** in the menu bar, then choose a tab: **Versions** (shown first), **Tags** or **Entities**. Each list refreshes after every decision; the item you decided on disappears. On a shared server only the administrator decides on versions and entities and merges tags; everyone can accept or reject the suggested tags of their own documents.
 
 ### Versions tab
 
@@ -359,6 +364,8 @@ The knowledge graph is a map of the entities your notes mention and how they rel
 2. Type a name in the search box. Results appear after you pause typing; exact spelling isn't required.
 3. If several entities match (for example a project and a topic with the same name), a list appears: click the one you mean.
 
+On a shared server you only find entities that your own notes mention; others answer as if they didn't exist, and the diagram says *This entity has no evidence you can see.* for them.
+
 You can also link straight to an entity by name, `http://127.0.0.1:8765/ui/graph?entity=Projeto%20Alfa`, or by its id, `...?entity=%23519` (`#519`).
 
 ### The entity card
@@ -394,7 +401,7 @@ The Status page shows the health of mynotes at a glance. It refreshes by itself 
 
 ### Scan now
 
-The **Scan now** button looks through all your folders for new, changed, moved and deleted files. The worker then reads and indexes what changed, so it must be running. You don't normally need the button: the worker scans every 15 minutes by default, and within seconds if the file watcher is on.
+The **Scan now** button looks through all your folders for new, changed, moved and deleted files. The worker then reads and indexes what changed, so it must be running. You don't normally need the button: the worker scans every 15 minutes by default, and within seconds if the file watcher is on. On a shared server it only scans folders on the server itself; notes uploaded by agents arrive when their agent sends them.
 
 ### Roots
 
@@ -404,7 +411,7 @@ One row per notes folder:
 |---|---|
 | **Root** | The folder's short name |
 | **Path** | Where it is on disk |
-| **Watcher** | Whether changes are noticed immediately: *native* (the system reports changes) or *polling* (mynotes checks every 2 seconds) when the watcher is on; *down* when the folder can't be watched (for example, missing); *no state* when the watcher is off or the worker isn't running. **stale** means the worker hasn't reported for over 2 minutes: it has probably stopped |
+| **Watcher** | Whether changes are noticed immediately: *native* (the system reports changes) or *polling* (mynotes checks every 2 seconds) when the watcher is on; *agent* for a folder fed by an agent on a person's machine, with the time of its last report; *down* when the folder can't be watched (for example, missing); *no state* when the watcher is off or the worker isn't running. **stale** means the worker hasn't reported for over 2 minutes: it has probably stopped |
 | **Last scan** | When the last scan ran, its kind (*incremental*: only changes; *full*: re-reads everything; *targeted*: specific files), whether it finished (*done*), and what it found, for example `new=3 modified=1 unchanged=560` |
 
 ### Queue and KG backlog
@@ -448,7 +455,7 @@ How many files in your folders mynotes can't read (unsupported formats, such as 
 
 ## 11. Privacy and security
 
-- **Everything stays on your computer**, except the text sent to the three AI services to embed passages, rank results, write answers and suggest tags.
+- **Everything stays on your computer** (or on your organisation's server, in server mode), except the text sent to the three AI services to embed passages, rank results, write answers and suggest tags.
 - **No login is needed** in the standard single-user setup. For that reason the web interface only accepts connections from the computer it runs on (`127.0.0.1`). Don't make it reachable from other computers unless whoever runs your installation has set up sign-in: anyone who can reach it can read your notes.
 - **mynotes never changes your notes.** The web interface reads them; all its own data (tags, reviews, versions) lives in its database.
 - **Your chats are kept** in the mynotes database (question, answer and sources) for the **History** page, until you delete them there.
@@ -481,6 +488,7 @@ How many files in your folders mynotes can't read (unsupported formats, such as 
 |---|---|
 | Chat | http://127.0.0.1:8765/ui/chat |
 | Search | http://127.0.0.1:8765/ui/search |
+| History | http://127.0.0.1:8765/ui/history |
 | Reviews | http://127.0.0.1:8765/ui/reviews |
 | Graph | http://127.0.0.1:8765/ui/graph |
 | Graph, for one entity | http://127.0.0.1:8765/ui/graph?entity=NAME |
@@ -488,6 +496,7 @@ How many files in your folders mynotes can't read (unsupported formats, such as 
 | Help (this manual, the command-line manual, the MCP guide) | http://127.0.0.1:8765/ui/help |
 | A document | http://127.0.0.1:8765/ui/documents/ID |
 | HTTP API documentation (for connecting other programs) | http://127.0.0.1:8765/docs |
+| Sign in (shared server only) | https://YOUR-SERVER/ui/login |
 
 | Task | Where |
 |---|---|

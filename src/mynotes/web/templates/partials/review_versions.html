@@ -23,11 +23,15 @@
         {%- if key in row.relation.evidence %} · {{ key }}: {{ row.relation.evidence[key] }}{% endif %}
         {%- endfor %}
       </p>
+      {%- if is_admin %}
       <div class="review-actions">
         <button type="button" hx-post="/v1/versions/{{ row.relation.id }}/confirm" hx-swap="none">Confirm</button>
         <button type="button" hx-post="/v1/versions/{{ row.relation.id }}/reject" hx-swap="none">Reject</button>
         <button type="button" hx-post="/v1/versions/{{ row.relation.id }}/swap" hx-swap="none">Swap</button>
       </div>
+      {%- else %}
+      <p class="muted review-admin-note">The administrator confirms or rejects version links.</p>
+      {%- endif %}
     </li>
     {% else %}
     <li class="empty">No proposed version relations.</li>

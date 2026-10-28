@@ -888,6 +888,14 @@ _COMPONENT_OPTION = typer.Option(
 )
 
 
+_LOG_COMPONENT_OPTION = typer.Option(
+    "worker",
+    "--component",
+    "-c",
+    help="worker (scan, index, graph) or web (the web interface); one at a time.",
+)
+
+
 def _service_parts(component: str = "worker") -> tuple[Any, Any]:
     """Build the spec for one component and the platform backend, or exit with an error."""
     from mynotes.platform.service import ServiceError, backend_for_platform, default_spec
@@ -987,7 +995,7 @@ def _tail_follow(path: Path) -> None:
 
 
 @service_app.command("logs")
-def service_logs(component: str = _COMPONENT_OPTION) -> None:
+def service_logs(component: str = _LOG_COMPONENT_OPTION) -> None:
     """Follow one service's logs (prints the platform hint on Linux)."""
     if component == "all":
         console.print("[red]--component all is not supported for logs; pick worker or web.[/]")

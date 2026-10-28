@@ -24,7 +24,9 @@
         <li><a href="/ui/history"{% if nav == "history" %} aria-current="page"{% endif %}>History</a></li>
         <li><a href="/ui/reviews"{% if nav == "reviews" %} aria-current="page"{% endif %}>Reviews</a></li>
         <li><a href="/ui/graph"{% if nav == "graph" %} aria-current="page"{% endif %}>Graph</a></li>
+        {%- if is_admin %}
         <li><a href="/ui/status"{% if nav == "status" %} aria-current="page"{% endif %}>Status</a></li>
+        {%- endif %}
         <li><a href="/ui/help"{% if nav == "help" %} aria-current="page"{% endif %}>Help</a></li>
       </ul>
       <div class="topbar-tools">

@@ -1,6 +1,8 @@
 # Local infrastructure
 
-mynotes needs two services: **PostgreSQL** (source of truth) and **OpenSearch** (hybrid search index). Both run in Docker via `docker-compose.yml`; the mynotes application itself runs natively with `uv` (file watching doesn't work reliably through Docker bind mounts on macOS/Windows; see PLAN.md §7.8).
+*Developer reference for the repository's own `docker-compose.yml`. To install mynotes, see [deployment/](../deployment/README.md).*
+
+mynotes needs two services: **PostgreSQL** (source of truth) and **OpenSearch** (hybrid search index). Both run in Docker via `docker-compose.yml`; in development the mynotes application itself runs natively with `uv`. (The [full-stack](../deployment/full-stack/README.md) and [server](../deployment/server/README.md) deployments also run mynotes in Docker; there the file watcher polls, because native file events don't cross Docker bind mounts reliably on macOS and Windows.)
 
 ## Pinned versions
 

@@ -1,6 +1,6 @@
 # Full stack: everything in Docker
 
-PostgreSQL, OpenSearch, the mynotes worker and the web UI/API all run in Docker. See [../README.md](../README.md) for how this compares with the infrastructure-only option.
+PostgreSQL, OpenSearch, the mynotes worker and the web UI/API all run in Docker. See [../README.md](../README.md) for how this compares with the other two options.
 
 | File | Purpose |
 |---|---|
@@ -58,7 +58,7 @@ Claude Code (MCP server, one container per session):
 claude mcp add mynotes -- docker compose -f "$PWD/docker-compose.yml" run --rm -T --no-deps worker mynotes mcp
 ```
 
-The main [README](../../README.md#using-mynotes) covers searching, tags, versions and the web UI.
+The [user manual](../../docs/user-manual.md) covers asking, searching, tags, versions and the knowledge graph; the [web interface manual](../../docs/web-interface-manual.md) covers the web UI.
 
 ## Operate
 
@@ -84,8 +84,8 @@ cp mynotes.yaml mynotes-$(date +%F).yaml
 docker compose stop worker web
 docker compose exec -T postgres pg_restore -U mynotes -d mynotes --clean --if-exists --no-owner < mynotes-YYYY-MM-DD.dump
 docker compose run --rm worker mynotes init
-docker compose run --rm worker mynotes index rebuild
-docker compose run --rm worker mynotes index rebuild --entities
+docker compose run --rm worker mynotes index rebuild --yes
+docker compose run --rm worker mynotes index rebuild --entities --yes
 docker compose start worker web
 ```
 

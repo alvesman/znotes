@@ -7,7 +7,7 @@ in ``static/`` and rendering never touches model output as HTML.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
@@ -115,15 +115,27 @@ templates.env.globals["PROJECT_URL"] = PROJECT_URL
 templates.env.globals["VERSION"] = __version__
 
 
-def _render(request: Request, name: str, context: dict[str, Any]) -> Response:
+def _render(
+    request: Request, name: str, context: dict[str, Any], status_code: int = 200
+) -> Response:
     """Render one UI template with the UI security headers."""
     context.setdefault("signed_in_user", _signed_in_user(request))
+    context.setdefault("is_admin", _is_admin(request))
     return templates.TemplateResponse(
         request,
         name,
         context,
+        status_code=status_code,
         headers={"Content-Security-Policy": _UI_CSP},
     )
+
+
+def _is_admin(request: Request) -> bool:
+    """Whether the menu offers the admin pages (Status): the caller's principal decides."""
+    principal = getattr(request.state, "principal", None)
+    if principal is None:  # the sign-in page: nobody yet, unless in local mode
+        return get_settings().auth.mode == "none"
+    return bool(principal.is_admin)
 
 
 def _signed_in_user(request: Request) -> str | None:
@@ -161,16 +173,16 @@ def login_submit(
     from mynotes.core import tokens
 
     info = tokens.verify_token(token.strip()) if token.strip() else None
+    error = None
     if info is None:
+        error = "That token is not valid (or was revoked). Check it and try again."
+    elif not tokens.can_read(info):
+        error = "That token is for an agent and cannot sign in. Ask for a web token."
+    if error is not None:
         return _render(
             request,
             "login.html",
-            {
-                "nav": "login",
-                "next": _safe_next(next),
-                "error": "That token is not valid (or was revoked). Check it and try again.",
-                "signed_in_user": None,
-            },
+            {"nav": "login", "next": _safe_next(next), "error": error, "signed_in_user": None},
         )
     response = RedirectResponse(_safe_next(next), status_code=303)
     response.set_cookie(
@@ -207,6 +219,17 @@ def _parse_since(value: str) -> datetime | None:
         return datetime.strptime(value, "%Y-%m").replace(tzinfo=UTC)
     except ValueError:
         return None
+
+
+def _remote_ids(principal: Principal, items: Iterable[dict[str, Any]]) -> set[int]:
+    """The cited documents uploaded by an agent, which get no "Open in app" button."""
+    if not principal.can_open_files:
+        return set()  # the button is not shown at all
+    return service.remote_document_ids(
+        item["document_id"]
+        for item in items
+        if item.get("format") in service.OPEN_IN_APP_FORMATS and item.get("document_id") is not None
+    )
 
 
 def _hit_item(hit: SearchHit) -> dict[str, Any]:
@@ -252,6 +275,9 @@ def chat_page(
         if found is not None:
             context["conversation_id"] = found.key
             context["turns"] = [_turn_item(turn) for turn in found.turns]
+    context["remote_ids"] = _remote_ids(
+        principal, (item for turn in context["turns"] for item in turn["citations"])
+    )
     return _render(request, "chat.html", context)
 
 
@@ -290,7 +316,11 @@ def partial_search(
     rerank: Annotated[bool, Form()] = False,
 ) -> Response:
     """The HTMX result partial for the search form."""
-    context: dict[str, Any] = {"can_open_files": principal.can_open_files, "hits": []}
+    context: dict[str, Any] = {
+        "can_open_files": principal.can_open_files,
+        "hits": [],
+        "remote_ids": set(),
+    }
     if not query.strip():
         return _render(request, "partials/search_results.html", context)
     filters = schemas.FiltersModel(
@@ -304,6 +334,7 @@ def partial_search(
     strong, weak = split_weak_hits(result.hits)
     context["hits"] = [_hit_item(hit) for hit in strong]
     context["weak_hits"] = [_hit_item(hit) for hit in weak]
+    context["remote_ids"] = _remote_ids(principal, [*context["hits"], *context["weak_hits"]])
     return _render(request, "partials/search_results.html", context)
 
 
@@ -372,6 +403,15 @@ def _history_context(principal: Principal, message: str | None = None) -> dict[s
     return {
         "nav": "history",
         "can_open_files": principal.can_open_files,
+        "remote_ids": _remote_ids(
+            principal,
+            (
+                citation
+                for conversation in items
+                for turn in conversation["turns"]
+                for citation in turn["citations"]
+            ),
+        ),
         "conversations": items,
         "total": total,
         "message": message,
@@ -639,16 +679,11 @@ def help_topic(request: Request, principal: PrincipalDep, doc: str) -> Response:
 
 @router.get("/status")
 def status_page(request: Request, principal: PrincipalDep) -> Response:
-    """The status dashboard (task 48)."""
-    return _render(
-        request,
-        "status.html",
-        {
-            "nav": "status",
-            "can_open_files": principal.can_open_files,
-            "data": service.status(principal=principal),
-        },
-    )
+    """The status dashboard (task 48); admins only, others get a short explanation."""
+    context: dict[str, Any] = {"nav": "status", "can_open_files": principal.can_open_files}
+    if not principal.is_admin:
+        return _render(request, "status.html", {**context, "data": None}, status_code=403)
+    return _render(request, "status.html", {**context, "data": service.status(principal=principal)})
 
 
 @router.get("/partials/status")

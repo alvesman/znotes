@@ -47,11 +47,16 @@ def test_secret_shape_and_hash() -> None:
 def test_principal_for_token_scopes(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(tokens, "resolve_prefixes", lambda user, groups: ["alice-notes"])
     agent = tokens.principal_for(_info(("ingest:alice-notes",)))
-    assert agent.user == "alice" and agent.acl_prefixes == ["alice-notes"]
+    assert agent.user == "alice" and agent.acl_prefixes == []  # an agent token reads nothing
     assert agent.ingest_roots == frozenset({"alice-notes"})
     assert agent.can_open_files is False and agent.is_admin is False
-    admin = tokens.principal_for(_info(("web", "admin")))
-    assert admin.is_admin is True and admin.ingest_roots == frozenset()
+    web = tokens.principal_for(_info(("ingest:alice-notes", "web")))
+    assert web.acl_prefixes == ["alice-notes"] and web.ingest_roots == frozenset({"alice-notes"})
+    admin = tokens.principal_for(_info(("admin",)))
+    assert admin.is_admin is True and admin.acl_prefixes == ["alice-notes"]
+    assert admin.ingest_roots == frozenset()
+    assert not tokens.can_read(_info(("ingest:alice-notes",)))
+    assert tokens.can_read(_info(("web",))) and tokens.can_read(_info(("admin",)))
 
 
 @pytest.mark.parametrize("mode", ["none", "token", "oidc"])

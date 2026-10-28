@@ -119,6 +119,15 @@ models:
     backoff_max_s: 60
     honor_retry_after: true
 
+graph:
+  lexical_mentions: true        # link known entities named verbatim in a note that the extractor missed (docs/eval/multihop.md)
+  lexical_min_length: 4         # shortest name linked this way
+  lexical_max_mentions: 50      # entities with more extractor mentions are hubs and are never linked lexically
+  lexical_max_chunk_share: 0.02 # a name found in more than this share of all chunks (at least 20) is a generic word
+  lexical_max_ratio: 8          # ... or in more than this many times the chunks the extractor found it in
+  lexical_per_chunk: 8          # at most this many lexical mentions per chunk
+  lexical_types: [Technology, Project, Person, Organization]
+
 retrieval:
   fusion:
     technique: rrf
@@ -130,10 +139,22 @@ retrieval:
   knn_k: 200                     # neighbours the vector search considers before keeping `candidates`
   rerank_top: 40
   max_docs: 4
+  extra_docs_min_ratio: 1.0      # score-gap rule: admit up to extra_docs_max more documents whose best rerank score is >= this x the top score (1.0 = off)
+  extra_docs_max: 2
   max_chunks: 10
-  graph_expansion: false        # task 43 ablation: multi-hop MRR +0.06, history flat, ppr judge -0.09; docs/eval/m5-graph-ablation.md
+  graph_expansion: auto         # auto = only for chain-shaped questions ("the plugin that note X uses"); true/false = always/never (docs/eval/multihop.md)
   graph_hops: 1
   graph_method: one_hop         # or "ppr" (Personalized PageRank, pair with graph_hops: 2)
+  graph_freshness: false        # decay graph edge weights by the age of their latest evidence
+  graph_freshness_half_life_days: 365
+  graph_lexical_mentions: true  # expansion also follows lexical mentions (graph.lexical_mentions), weighted by their confidence; false = extractor mentions only
+  title_lock: true              # a quoted note title ("na nota "Plano Alfa"") puts that note first
+  date_lock: true               # a written date ("na reunião de 2026-01-12") puts that day's notes first
+  change_questions: true        # "em que reunião X passou a Y?": earliest note stating Y, with the week before
+  followup_turns: 3             # chat follow-ups see the last N turns (rewritten for search, given to the answer); 0 = off
+  recency_boost: true           # mildly favour recent documents in the final ranking (docs/eval/freshness.md)
+  recency_half_life_days: 365   # a document this old gets the midpoint between 1.0 and the floor
+  recency_min_multiplier: 0.8   # floor: a very old document keeps 80% of its score
   context_tokens: 3500
 
 # docker-compose.yml sets the database and OpenSearch addresses; the passwords come from .env.

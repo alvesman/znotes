@@ -5,7 +5,7 @@
   <li class="hit">
     <div class="hit-snippet md">{{ item.snippet }}</div>
     {% if item.section %}<p class="hit-section">{{ item.section }}</p>{% endif %}
-    {{ cite(item, can_open_files) }}
+    {{ cite(item, can_open_files, remote_ids) }}
     {% if item.tags %}<p class="hit-tags">{{ item.tags|join(", ") }}</p>{% endif %}
   </li>
   {% endfor %}

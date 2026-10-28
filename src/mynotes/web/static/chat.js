@@ -63,7 +63,7 @@
       link.rel = "noopener";
       actions.appendChild(link);
     } else if (OFFICE_FORMATS.indexOf(format) !== -1) {
-      if (document.body.dataset.canOpenFiles === "true") {
+      if (document.body.dataset.canOpenFiles === "true" && citation.openable !== false) {
         var button = el("button", "open-in-app", "Open in app");
         button.type = "button";
         button.addEventListener("click", function () {

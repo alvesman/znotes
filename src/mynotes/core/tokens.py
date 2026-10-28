@@ -169,11 +169,20 @@ def verify_token(secret: str) -> TokenInfo | None:
         return _info(row)
 
 
+def can_read(info: TokenInfo) -> bool:
+    """Whether the token may read notes and sign in (the ``web`` or ``admin`` scope)."""
+    return WEB_SCOPE in info.scopes or ADMIN_SCOPE in info.scopes
+
+
 def principal_for(info: TokenInfo) -> Principal:
-    """The principal a verified token acts as."""
+    """The principal a verified token acts as.
+
+    Its user's ACL grants apply only with a read scope (:func:`can_read`); a
+    token with only ``ingest:`` scopes feeds its roots and reads nothing.
+    """
     return Principal(
         user=info.principal,
-        acl_prefixes=resolve_prefixes(info.principal, []),
+        acl_prefixes=resolve_prefixes(info.principal, []) if can_read(info) else [],
         can_open_files=False,
         is_admin=ADMIN_SCOPE in info.scopes,
         ingest_roots=frozenset(

@@ -16,16 +16,18 @@ from starlette.responses import JSONResponse
 from mynotes.api.auth import PrincipalDep
 from mynotes.api.schemas import ScanRequest
 from mynotes.core import service
+from mynotes.core.errors import Forbidden
+from mynotes.core.principal import Principal
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
-def _run_scan(root: str | None, full: bool) -> None:
+def _run_scan(root: str | None, full: bool, principal: Principal) -> None:
     """Run the scan off-thread and log the outcome (the caller already got 202)."""
     try:
-        summaries = service.trigger_scan(root, full)
+        summaries = service.trigger_scan(root, full, principal=principal)
         logger.info("api scan finished: %s", [summary.counts for summary in summaries])
     except Exception:
         logger.exception("api scan of root %r failed", root)
@@ -35,10 +37,12 @@ def _run_scan(root: str | None, full: bool) -> None:
 def trigger_scan(
     payload: ScanRequest | None = None, principal: PrincipalDep = None
 ) -> dict[str, object]:
-    """Start a scan of the enabled roots (or one named root) in the background."""
+    """Start a scan of the enabled roots (or one named root) in the background (admin only)."""
+    if not principal.is_admin:
+        raise Forbidden("this action requires an admin principal")
     thread = threading.Thread(
         target=_run_scan,
-        args=(payload.root if payload else None, payload.full if payload else False),
+        args=(payload.root if payload else None, payload.full if payload else False, principal),
         name="api-scan",
         daemon=True,
     )

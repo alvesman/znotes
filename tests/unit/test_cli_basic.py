@@ -160,3 +160,10 @@ def test_default_level_is_info(monkeypatch: pytest.MonkeyPatch) -> None:
     result = runner.invoke(app, ["init"])
     assert result.exit_code == 0
     assert logging.getLogger().level == logging.INFO
+
+
+def test_service_logs_offers_one_component_at_a_time() -> None:
+    result = runner.invoke(app, ["service", "logs", "--help"], env={"COLUMNS": "200"})
+    assert result.exit_code == 0
+    assert "worker" in result.output and "web" in result.output
+    assert " or all" not in result.output

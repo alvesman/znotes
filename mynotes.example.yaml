@@ -177,6 +177,15 @@ storage:
 
 auth:
   mode: none                     # none (local, no login) | token (personal tokens, sign-in page) | oidc
+  # Only for mode: oidc (JWTs from an identity provider such as Keycloak, behind a sign-in proxy):
+  # oidc:
+  #   issuer: https://sso.example.org/realms/team     # required in oidc mode
+  #   audience: mynotes                                # required in oidc mode
+  #   user_claim: preferred_username
+  #   groups_claim: groups
+  #   jwks_cache_s: 3600
+  # admin_principals: [alice, "group:mynotes-admins"]  # oidc users allowed to review, merge and see Status
+  # trust_proxy_header: false    # also accept X-Forwarded-Access-Token (oauth2-proxy and similar)
 
 # The agent of server mode (nothing else above is needed on that machine; the token is better
 # kept in the environment: MYNOTES_AGENT_SERVER_URL/TOKEN/ROOT/PATH).
@@ -190,3 +199,4 @@ auth:
 #   watch: true
 #   upload_concurrency: 4
 #   verify_tls: true
+#   hash_cache: true              # remember file hashes between runs (only changed files are re-hashed)

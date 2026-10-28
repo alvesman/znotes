@@ -16,6 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from mynotes.api.app import create_app
+from mynotes.api.auth import get_principal
 from mynotes.core import service
 from mynotes.core.principal import LOCAL, Principal
 from mynotes.llm.errors import EndpointUnavailable
@@ -156,6 +157,34 @@ def test_ask_stream_frames_in_order(monkeypatch: pytest.MonkeyPatch) -> None:
     assert events[3][1] == {"relevant": True, "timings_ms": {"llm": 5}}
 
 
+def test_ask_stream_marks_uploaded_notes_not_openable(monkeypatch: pytest.MonkeyPatch) -> None:
+    sources = [
+        {"n": 1, "document_id": 7, "format": "docx", "path": "alice-notes/a.docx"},
+        {"n": 2, "document_id": 8, "format": "docx", "path": "local/b.docx"},
+        {"n": 3, "document_id": 9, "format": "md", "path": "local/c.md"},
+    ]
+
+    def fake_ask_stream(*args: object, **kwargs: object) -> Iterator[AnswerEvent]:
+        yield AnswerEvent(type="sources", data=sources)
+        yield AnswerEvent(type="done", data=_answer_result())
+
+    asked: list[set[int]] = []
+
+    def fake_remote(ids: object) -> set[int]:
+        asked.append(set(ids))  # type: ignore[call-overload]
+        return {7}
+
+    monkeypatch.setattr(service, "ask_stream", fake_ask_stream)
+    monkeypatch.setattr(service, "remote_document_ids", fake_remote)
+    monkeypatch.setattr("mynotes.api.routes.ask._save_chat", lambda *args, **kwargs: None)
+    with TestClient(create_app()).stream("POST", "/v1/ask/stream", json={"question": "q"}) as r:
+        text = "".join(r.iter_text())
+    citations = dict(_parse_sse(text))["sources"]["citations"]
+    assert asked == [{7, 8}]  # only formats with "Open in app" are looked up
+    assert citations[0]["openable"] is False
+    assert "openable" not in citations[1] and "openable" not in citations[2]
+
+
 def test_ask_stream_emits_error_and_done_on_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -272,6 +301,7 @@ def test_scan_returns_202_and_runs_off_thread(monkeypatch: pytest.MonkeyPatch) -
     ) -> list[ScanSummary]:
         seen["root"] = root
         seen["full"] = full
+        seen["principal"] = principal
         called.set()
         return [ScanSummary(scan_run_id=1, counts={"new": 1}, errors=[])]
 
@@ -280,7 +310,18 @@ def test_scan_returns_202_and_runs_off_thread(monkeypatch: pytest.MonkeyPatch) -
     assert response.status_code == 202
     assert response.json()["accepted"] is True
     assert called.wait(timeout=5)
-    assert seen == {"root": "ideas", "full": True}
+    assert seen == {"root": "ideas", "full": True, "principal": LOCAL}
+
+
+def test_scan_needs_an_admin(monkeypatch: pytest.MonkeyPatch) -> None:
+    called: list[object] = []
+    monkeypatch.setattr(service, "trigger_scan", lambda *args, **kwargs: called.append(args))
+    app = create_app()
+    app.dependency_overrides[get_principal] = lambda: Principal(user="bob", acl_prefixes=["bob"])
+    response = TestClient(app).post("/v1/scan", json={})
+    assert response.status_code == 403
+    assert response.json()["error"] == "forbidden"
+    assert called == []
 
 
 def test_healthz_reports_down_services(monkeypatch: pytest.MonkeyPatch) -> None:

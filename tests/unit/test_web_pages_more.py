@@ -11,11 +11,14 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
+from fastapi import Request
 from fastapi.testclient import TestClient
 
 from mynotes.api.app import create_app
+from mynotes.api.auth import get_principal
 from mynotes.core import service
 from mynotes.core.errors import Ambiguous, NotFound
+from mynotes.core.principal import Principal
 from mynotes.tags.autotag import DocumentProposals, ProposalView
 from mynotes.tags.store import TagDetail
 from mynotes.versioning.review import DocRef, RelationView
@@ -294,6 +297,68 @@ def test_reviews_entities_tab_lists_candidates_with_keep_older(
     assert "name similarity 0.72" in response.text
     assert 'hx-post="/ui/reviews/entities/3/8/merge"' in response.text
     assert 'hx-post="/ui/reviews/entities/8/3/distinct"' in response.text
+
+
+def _client_as(principal: Principal) -> TestClient:
+    """A client whose requests run as ``principal``, recorded for the menu as get_principal does."""
+
+    def as_principal(request: Request) -> Principal:
+        request.state.principal = principal
+        return principal
+
+    app = create_app()
+    app.dependency_overrides[get_principal] = as_principal
+    return TestClient(app)
+
+
+def test_reviews_hide_admin_actions_from_other_users(monkeypatch: pytest.MonkeyPatch) -> None:
+    doc = DocRef(
+        document_id=9, title="Plano", path="work/plano.md", doc_date=None, status="current"
+    )
+    relation = RelationView(
+        id=12, status="proposed", confidence=0.9, method="name", newer=doc, older=doc, evidence={}
+    )
+    proposals = [
+        DocumentProposals(
+            document_id=5,
+            title="Plano",
+            rel_path="work/plano.md",
+            proposals=[
+                ProposalView(document_id=5, tag_id=3, name="grafos", confidence=0.7, reason=None)
+            ],
+        )
+    ]
+    pair = service.EntityPair(
+        a_id=8,
+        b_id=3,
+        a_name="Projeto Alfa",
+        b_name="Proj Alfa",
+        a_type="Project",
+        b_type="Project",
+        a_created_at=datetime(2026, 9, 24, tzinfo=UTC),
+        b_created_at=datetime(2026, 9, 20, tzinfo=UTC),
+        similarity=0.72,
+    )
+    monkeypatch.setattr(service, "list_version_relations", lambda *args, **kwargs: [relation])
+    monkeypatch.setattr(service, "document_previews", lambda ids, **kwargs: {})
+    monkeypatch.setattr(service, "tag_proposals", lambda *args, **kwargs: proposals)
+    monkeypatch.setattr(service, "entity_merge_candidates", lambda *args, **kwargs: [pair])
+    client = _client_as(Principal(user="bob", acl_prefixes=["bob"]))
+
+    versions = client.get("/ui/reviews").text
+    assert "Plano" in versions and "/v1/versions/12/" not in versions
+    assert "The administrator confirms or rejects version links." in versions
+    tags = client.get("/ui/partials/reviews/tags").text
+    assert "/v1/tags/5/grafos/accept" in tags and "/v1/tags/5/grafos/reject" in tags  # anyone
+    assert "/v1/tags/merge" not in tags
+    entities = client.get("/ui/partials/reviews/entities").text
+    assert "Projeto Alfa" in entities and "/ui/reviews/entities/" not in entities
+    assert "The administrator merges entities" in entities
+
+    admin = _client_as(Principal(user="root", acl_prefixes=[""], is_admin=True))
+    assert "/v1/versions/12/confirm" in admin.get("/ui/reviews").text
+    assert "/v1/tags/merge" in admin.get("/ui/partials/reviews/tags").text
+    assert "/ui/reviews/entities/3/8/merge" in admin.get("/ui/partials/reviews/entities").text
 
 
 def test_entity_merge_action_calls_facade_and_rerenders(

@@ -18,11 +18,13 @@
           <button type="button" class="tag-action"
                   hx-post="/v1/tags/{{ entry.document_id }}/{{ proposal.name|urlencode }}/reject"
                   hx-swap="none">Reject</button>
+          {%- if is_admin %}
           <form class="merge-form" hx-post="/v1/tags/merge" hx-ext="json-enc" hx-swap="none">
             <input type="hidden" name="from" value="{{ proposal.name }}">
             <input type="text" name="into" placeholder="merge into tag…" aria-label="Tag to merge into">
             <button type="submit">Merge into…</button>
           </form>
+          {%- endif %}
         </li>
         {% endfor %}
       </ul>

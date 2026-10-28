@@ -11,6 +11,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
+from fastapi import Request
 from fastapi.testclient import TestClient
 
 from mynotes.api.app import create_app
@@ -248,10 +249,51 @@ def test_local_principal_shows_open_in_app(monkeypatch: pytest.MonkeyPatch) -> N
         return _result([_hit(document_id=7, format="docx", page=None, slide=2)])
 
     monkeypatch.setattr(service, "search", fake_search)
+    monkeypatch.setattr(service, "remote_document_ids", lambda ids: set())
     response = _client().post("/ui/partials/search", data={"query": "q"})
     assert response.status_code == 200, response.text
     assert "Open in app" in response.text
     assert 'hx-post="/v1/files/7/open"' in response.text
+
+
+def test_uploaded_note_gets_no_open_in_app(monkeypatch: pytest.MonkeyPatch) -> None:
+    hits = [_hit(document_id=7, format="docx"), _hit(document_id=8, format="xlsx")]
+    asked: list[set[int]] = []
+
+    def fake_remote(ids: object) -> set[int]:
+        asked.append(set(ids))  # type: ignore[call-overload]
+        return {7}  # document 7 was uploaded by an agent
+
+    monkeypatch.setattr(service, "search", lambda *args, **kwargs: _result(hits))
+    monkeypatch.setattr(service, "remote_document_ids", fake_remote)
+    response = _client().post("/ui/partials/search", data={"query": "q"})
+    assert response.status_code == 200, response.text
+    assert asked == [{7, 8}]
+    assert 'hx-post="/v1/files/7/open"' not in response.text
+    assert 'hx-post="/v1/files/8/open"' in response.text
+    assert "/v1/files/7/raw" in response.text  # Download stays
+
+
+def test_status_is_for_admins(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(service, "status", lambda **kwargs: pytest.fail("status was built"))
+    bob = Principal(user="bob", acl_prefixes=["bob"])
+
+    def as_bob(request: Request) -> Principal:
+        request.state.principal = bob  # as get_principal does, for the menu
+        return bob
+
+    app = create_app()
+    app.dependency_overrides[get_principal] = as_bob
+    client = TestClient(app)
+    page = client.get("/ui/status")
+    assert page.status_code == 403
+    assert "for the administrator" in page.text and "Scan now" not in page.text
+    chat = client.get("/ui/chat")
+    assert 'href="/ui/status"' not in chat.text and 'href="/ui/reviews"' in chat.text
+
+
+def test_local_mode_menu_keeps_status() -> None:
+    assert 'href="/ui/status"' in _client().get("/ui/chat").text
 
 
 def test_static_files_are_served() -> None:

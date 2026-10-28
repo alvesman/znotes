@@ -25,6 +25,8 @@ The transport is **stdio**: the MCP client launches `mynotes mcp` itself and tal
 
 All tools run locally (`principal=LOCAL`, no path restrictions) and never raise: failures come back as `{"error": "<kind>", "message": "..."}` so the model can react.
 
+In server mode this means the MCP server, which runs on the server, sees **every person's notes**: only the server's administrator should connect it.
+
 ## Resource
 
 `note://{path}` returns the extracted Markdown of one document. The `path` is the document path relative to its source root, **percent-encoded** (resource URI parameters cannot contain slashes): `note://work%2Freports%2Fplan.md` for `work/reports/plan.md`.
@@ -36,6 +38,12 @@ claude mcp add mynotes -- uv run --directory /path/to/mynotes mynotes mcp
 ```
 
 Replace `/path/to/mynotes` with the absolute path of this repository. Verify with `claude mcp list`.
+
+With everything in Docker ([deployment/full-stack](../deployment/full-stack/README.md)), run the server in a worker container instead (one per session), from the `deployment/full-stack` folder:
+
+```bash
+claude mcp add mynotes -- docker compose -f "$PWD/docker-compose.yml" run --rm -T --no-deps worker mynotes mcp
+```
 
 ## Claude Desktop
 
@@ -59,7 +67,7 @@ Restart Claude Desktop afterwards; the mynotes tools appear under the tools menu
 The MCP server is read-only. Run the scheduler/worker alongside it so scans, embeddings, index sync and KG extraction keep up with file changes:
 
 ```bash
-uv run mynotes worker          # scheduler + job consumer (add --watch for live file watching)
+uv run mynotes worker          # scheduler + job consumer (live file watching: scan.watch.enabled in mynotes.yaml)
 ```
 
 `scan_status` tells the model when the queue or the KG backlog is large, i.e. when answers may be stale.

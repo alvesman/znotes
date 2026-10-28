@@ -1,6 +1,6 @@
 # Infrastructure only: databases in Docker, mynotes natively
 
-PostgreSQL and OpenSearch run in Docker; mynotes runs on your machine with uv. See [../README.md](../README.md) for how this compares with the full-stack option.
+PostgreSQL and OpenSearch run in Docker; mynotes runs on your machine with uv. See [../README.md](../README.md) for how this compares with the other two options.
 
 This compose file is the same stack as the repository's own `docker-compose.yml` (same project name, containers and volumes), so both manage the same databases.
 
@@ -54,7 +54,7 @@ uv run mynotes serve               # web UI at http://127.0.0.1:8765/
 claude mcp add mynotes -- uv run --directory "$PWD" mynotes mcp
 ```
 
-The main [README](../../README.md#using-mynotes) covers searching, tags, versions and the web UI.
+The [user manual](../../docs/user-manual.md) covers asking, searching, tags, versions and the knowledge graph; the [web interface manual](../../docs/web-interface-manual.md) covers the web UI.
 
 ## Operate
 

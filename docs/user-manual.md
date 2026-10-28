@@ -20,7 +20,7 @@ This manual explains how to install, use and look after mynotes. It assumes no p
 14. [Configuration](#14-configuration)
 15. [Maintenance, backups and updates](#15-maintenance-backups-and-updates)
 16. [Troubleshooting](#16-troubleshooting)
-17. [Shared (team) use](#17-shared-team-use)
+17. [Shared (team) use](#17-shared-team-use-a-server-and-agents)
 18. [Command reference](#18-command-reference)
 19. [Glossary](#19-glossary)
 
@@ -37,7 +37,7 @@ mynotes answers questions about your own notes. You point it at one or more fold
 - **organises with tags**, taken from your folder names, from tags you wrote in the documents, and from suggestions made by an AI model;
 - **builds a knowledge graph**: a map of the people, projects, technologies and other things your notes mention, and how they relate.
 
-Everything stays on your computer except the text sent to three AI model services (see [Before you start](#2-before-you-start)).
+Everything stays on your computer except the text sent to three AI model services (see [Before you start](#2-before-you-start)). In server mode ([section 17](#17-shared-team-use-a-server-and-agents)) the notes are copied to your organisation's mynotes server instead.
 
 ### How the pieces fit together
 
@@ -137,7 +137,7 @@ All commands in this manual are typed into a terminal (Terminal on macOS and Lin
   uv run mynotes tags --help
   uv run mynotes tags show --help
   ```
-- **Commands with several parts.** Some commands are groups (`tags`, `versions`, `graph`, `index`, `watch`, `service`, `maintenance`, `acl`). A group on its own only shows an error such as `Missing command.`: you have to add what you want to do, for example `uv run mynotes tags list`.
+- **Commands with several parts.** Some commands are groups (`tags`, `versions`, `graph`, `index`, `watch`, `service`, `maintenance`, `acl`, and for server mode `root`, `token` and `agent`). A group on its own only shows an error such as `Missing command.`: you have to add what you want to do, for example `uv run mynotes tags list`.
 - **Stopping a running command.** Commands that keep running (`worker`, `serve`) stop with **Ctrl+C**.
 
 ---
@@ -364,7 +364,7 @@ Good to know:
 - **Write the date to ask about one day's note.** `"Na reunião de 2026-01-12, quem ficou com o deploy?"` uses the notes named or dated that day first, instead of the most recent week. Dates can be written `2026-01-12`, `12/01/2026`, `12 de janeiro de 2026` or `January 12, 2026`. (In a question about the past, with `as-of:`, the date is a cutoff instead.)
 - **Ask when something changed.** `"Em que reunião o deploy passou a DEMO?"` or `"When did the status change to done?"` looks through the whole series of notes and answers with the earliest one that states the new value, showing the week before it for comparison.
 - **If your notes don't contain the answer, mynotes says so** instead of guessing.
-- **Only current documents are used**, not versions that were replaced, unless you ask about history (see [Filters](#7-filters-narrowing-a-question-or-a-search)).
+- **Only current documents are used**, not versions that were replaced, unless you ask about history (see [Filters](#7-filters-narrowing-a-question-or-a-search)). The web Chat is the exception: its **Include old notes versions** box is ticked by default.
 
 ### Options
 
@@ -475,7 +475,7 @@ uv run mynotes serve --port 8800
 | **Chat** | http://127.0.0.1:8765/ui/chat | Ask questions; the answer appears as it is written. Click a citation to open the document; PDF citations open at the cited page |
 | **Search** | http://127.0.0.1:8765/ui/search | Search with filters for tags, folder, file type, date and history |
 | **History** | http://127.0.0.1:8765/ui/history | Your past chats, newest first; the questions of one chat appear together, with their answers and sources. **Continue this chat** reopens one in Chat to ask more. Delete chats not used for a number of days, or all of them |
-| **Document** | reached from search results and citations | Read a document's text, opened at the cited section; see its tags (accept or reject suggested ones), the documents it replaces or that replace it, and its edit history. "Open in app" opens the original file |
+| **Document** | reached from search results and citations | Read a document's text, opened at the cited section; see its tags (accept or reject suggested ones), the documents it replaces or that replace it, and its edit history. "Open in app" opens the original file on the computer running mynotes (not in Docker or server mode) |
 | **Reviews** | http://127.0.0.1:8765/ui/reviews | Three tabs: **versions** (confirm, reject or reverse proposed "replaces" links), **tags** (accept, reject or merge suggested tags) and **entities** (merge duplicates in the knowledge graph, or mark them as different) |
 | **Graph** | http://127.0.0.1:8765/ui/graph | Look up a person, project or other entity; see its summary, its connections as an interactive diagram, and a timeline |
 | **Status** | http://127.0.0.1:8765/ui/status | Scans, queued work, knowledge-graph progress, index health and AI services. **Scan now** starts a scan (the worker must be running to process it). Refreshes every 30 seconds |
@@ -483,7 +483,7 @@ uv run mynotes serve --port 8800
 
 There is also an interactive description of the HTTP API at http://127.0.0.1:8765/docs, for people who want to connect other programs.
 
-**Security:** in the default single-user setup there is no login. The web interface only listens on your own computer (`127.0.0.1`), so nobody else can reach it. Don't change `--host` to make it reachable from other computers unless you have set up authentication ([section 17](#17-shared-team-use)).
+**Security:** in the default single-user setup there is no login. The web interface only listens on your own computer (`127.0.0.1`), so nobody else can reach it. Don't change `--host` to make it reachable from other computers unless you have set up authentication ([section 17](#17-shared-team-use-a-server-and-agents)).
 
 ---
 
@@ -534,7 +534,7 @@ This uses systemd on Linux (user units `mynotes-worker` and `mynotes-web`), laun
 uv run mynotes service install --dry-run --component all
 ```
 
-Related commands (`--component worker|web|all`, worker by default):
+Related commands (`--component worker|web|all`, worker by default; `logs` takes `worker` or `web`):
 
 ```bash
 uv run mynotes service status --component all   # installed? running?
@@ -545,7 +545,7 @@ uv run mynotes service uninstall --component all
 
 Logs: Linux `journalctl --user -u mynotes-worker -f` and `journalctl --user -u mynotes-web -f`; macOS `~/Library/Logs/mynotes/worker.log` and `web.log`; Windows `%LOCALAPPDATA%\mynotes\mynotes\Logs\worker.log` and `web.log`.
 
-On Linux the services run while you are logged in; to keep them running without a session (a headless machine), run `loginctl enable-linger $USER` once. The web service listens on localhost only; to reach it from other machines, see [Shared (team) use](#17-shared-team-use).
+On Linux the services run while you are logged in; to keep them running without a session (a headless machine), run `loginctl enable-linger $USER` once. The web service listens on localhost only; to reach it from other machines, see [Shared (team) use](#17-shared-team-use-a-server-and-agents).
 
 Don't run `uv run mynotes worker` or `uv run mynotes serve` in a terminal while the matching service is running; one of each is enough.
 
@@ -857,7 +857,22 @@ mynotes looks for `mynotes.yaml` in this order and uses the first it finds:
 2. `mynotes.yaml` in the folder you run the command from;
 3. your user configuration folder: Linux `~/.config/mynotes/mynotes.yaml`, macOS `~/Library/Application Support/mynotes/mynotes.yaml`, Windows `%LOCALAPPDATA%\mynotes\mynotes\mynotes.yaml`.
 
-`uv run mynotes status` shows which file is in use. Values in `.env` override the matching settings in `mynotes.yaml`.
+`uv run mynotes status` shows which file is in use.
+
+Values in `.env` (or in the environment) override the matching settings in `mynotes.yaml`. Only these variables are read; every other setting goes in `mynotes.yaml`:
+
+| Variable | Setting |
+|---|---|
+| `MYNOTES_PG_DSN` | `postgres.dsn` |
+| `MYNOTES_OPENSEARCH_URL`, `_USER`, `_PASSWORD`, `_CHUNKS_ALIAS` | `opensearch.url`, `.user`, `.password`, `.chunks_alias` |
+| `MYNOTES_EMBEDDING_BASE_URL`, `_API_KEY`, `_MODEL`, `_DIM`, `_QUERY_TEMPLATE`, `_PASSAGE_PREFIX` | `models.embedding.*` |
+| `MYNOTES_RERANKER_PROVIDER`, `_URL`, `_API_KEY`, `_MODEL`, `_TOP_N` | `models.reranker.*` |
+| `MYNOTES_LLM_BASE_URL`, `_API_KEY`, `_MODEL`, `_TEMPERATURE`, `_MAX_TOKENS`, `_CONTEXT_WINDOW`, `_THINKING_MODEL` | `models.llm.*` |
+| `MYNOTES_LLM_TIMEOUT_S` | `models.llm.limits.timeout_s` |
+| `MYNOTES_STORAGE_DIR`, `MYNOTES_AUTH_MODE` | `storage.dir`, `auth.mode` (server mode) |
+| `MYNOTES_AGENT_SERVER_URL`, `_TOKEN`, `_ROOT`, `_PATH` | `agent.server_url`, `.token`, `.root`, `.path` (the agent) |
+
+`MYNOTES_CONFIG` chooses the settings file (see above). The `MYNOTES_COMPOSE_*`, `MYNOTES_NOTES_DIR`, `MYNOTES_WEB_*`, `MYNOTES_SERVER_HOST` and `MYNOTES_VERSION` variables are read by Docker Compose, not by mynotes.
 
 **After changing `mynotes.yaml`**, restart the worker (and the web interface, if running). After adding, removing or renaming a root, also run `uv run mynotes init`.
 
@@ -1030,9 +1045,12 @@ mynotes can also run as one **server** for several people. The server (PostgreSQ
 mynotes token create --user alice --name laptop --root alice-notes   # her agent's token; creates the root
 mynotes token create --user alice --name web --web                   # her sign-in token
 mynotes token create --user admin --name me --admin                  # your own
+mynotes acl grant admin ""                                           # and read access to every root
 mynotes root list                                          # roots and when each agent was last seen
 mynotes token list / mynotes token revoke <id>
 ```
+
+(In the Docker setup of the server each command is prefixed with `docker compose exec worker`.) A token's scopes decide what it may do, and ACL grants decide what its user may read: `--root` grants that root to its user, while an admin token reads nothing until it is granted, as above.
 
 and alice runs on her machine, with the server's address, her agent token, the root's name and her folder in `MYNOTES_AGENT_SERVER_URL`, `MYNOTES_AGENT_TOKEN`, `MYNOTES_AGENT_ROOT` and `MYNOTES_AGENT_PATH`:
 
@@ -1042,7 +1060,9 @@ uv run mynotes agent sync       # one sync, then exit
 uv run mynotes agent status     # what the server knows about this root
 ```
 
-On the server the notes of a remote root appear under the root's name (`alice-notes/ideas/plan.md`), and alice's read access is granted under that prefix when the root is created. **Open in app** is not offered for uploaded notes; **Open** and **Download** serve the server's copy.
+On the server the notes of a remote root appear under the root's name (`alice-notes/ideas/plan.md`), and alice's read access is granted under that prefix when the root is created. **Open in app** is not offered for uploaded notes; **Open** and **Download** serve the server's copy. A knowledge-graph entity exists for a person only if some of its evidence is in a document they may read.
+
+The MCP server and the `ask` and `search` commands need direct database access, so in server mode they run on the server, and without access control: they see every person's notes. Only the server's administrator should use them.
 
 The older building blocks remain: sign-in through an OpenID Connect provider (`auth.mode: oidc`), and per-folder read permissions for users and groups:
 
@@ -1054,7 +1074,7 @@ uv run mynotes acl revoke alice "projects/alfa"
 uv run mynotes acl list
 ```
 
-OIDC needs an identity provider and a sign-in proxy in front of the web interface; the token sign-in of server mode needs neither. To run everything in Docker, see [deployment/README.md](../deployment/README.md).
+OIDC needs an identity provider and a sign-in proxy in front of the web interface, and the `auth.oidc.issuer` and `auth.oidc.audience` settings; `auth.admin_principals` lists the users (or `group:NAME`) who may review, merge and see Status. The commented `auth:` block of `mynotes.example.yaml` shows every option. The token sign-in of server mode needs neither. To run everything in Docker, see [deployment/README.md](../deployment/README.md).
 
 ---
 
@@ -1144,8 +1164,11 @@ Every command starts with `uv run mynotes` and is run from the mynotes folder. A
 | `uv run mynotes index reconcile` | Compare database and index and queue repairs. `--no-fix` only reports |
 | `uv run mynotes index rebuild` | Rebuild the search index. Options: `--entities` (entity index instead), `--reembed` (recalculate embeddings), `--yes` |
 | `uv run mynotes maintenance run` | Housekeeping now. `--dry-run` only reports |
+| `uv run mynotes maintenance retry-extract` | Queue extraction again for files whose extraction failed. `--dry-run` counts them |
 
 ### Shared use
+
+On a server in Docker, run the `acl`, `root` and `token` commands as `docker compose exec worker mynotes …`.
 
 | Command | What it does |
 |---|---|
@@ -1154,7 +1177,7 @@ Every command starts with `uv run mynotes` and is run from the mynotes folder. A
 | `uv run mynotes acl list` | List all permissions |
 | `uv run mynotes root add NAME --remote --owner USER` | Create a root fed by a user's agent (server mode) |
 | `uv run mynotes root list` / `root remove NAME` | List the roots / take a remote root out of the index |
-| `uv run mynotes token create --user USER [--root NAME] [--web] [--admin]` | Create a personal token (printed once) |
+| `uv run mynotes token create --user USER [--name LABEL] [--root NAME] [--web] [--admin]` | Create a personal token (printed once); `--name` labels it, such as `laptop` |
 | `uv run mynotes token list` / `token revoke ID` | List / revoke tokens |
 | `uv run mynotes agent run` / `agent sync` / `agent status` | The agent on a person's machine (server mode) |
 
@@ -1171,6 +1194,7 @@ Every command starts with `uv run mynotes` and is run from the mynotes folder. A
 
 | Term | Meaning |
 |---|---|
+| **Agent** | In server mode, the small program on a person's machine that watches their notes folder and uploads changes to the server |
 | **Chunk** | A passage of a document (a few paragraphs). Documents are split into chunks so the relevant part can be found and cited |
 | **Citation** | A numbered reference (`[1]`) in an answer, pointing to the chunk it came from |
 | **Docker** | Software that runs programs (here, the databases) in isolated containers |
@@ -1182,9 +1206,10 @@ Every command starts with `uv run mynotes` and is run from the mynotes folder. A
 | **LLM** | Large language model: the AI that writes answers, suggests tags and builds the knowledge graph |
 | **MCP** | Model Context Protocol: lets AI assistants such as Claude use mynotes as a tool |
 | **Reranker** | An AI model that re-sorts search results by how well they answer the question |
-| **Root** | A folder you told mynotes to read (with all its subfolders), set in `mynotes.yaml` |
+| **Root** | A folder you told mynotes to read (with all its subfolders), set in `mynotes.yaml`. In server mode a *remote root* is fed by an agent instead |
 | **Scan** | A pass over your roots to find new, changed, moved and deleted files |
 | **Snapshot** | A saved earlier state of a document you edited |
 | **Superseded** | Replaced by a newer document; only used for history questions |
+| **Token** | In server mode, a personal secret (`mn_…`) that an agent uses to upload, or a person pastes to sign in to the web interface |
 | **Tag** | A label grouping documents; used to filter |
 | **Worker** | The background program that scans, reads, indexes and builds the knowledge graph |

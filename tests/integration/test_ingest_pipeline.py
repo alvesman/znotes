@@ -252,6 +252,7 @@ def test_manifest_upload_search_rename_delete(env: Env) -> None:
     raw = client.get(f"/v1/files/{document_id}/raw", headers=headers)
     assert raw.status_code == 200 and raw.content.decode("utf-8") == _NOTE_A
     assert service.get_document(str(document_id)).openable is False
+    assert service.remote_document_ids([document_id, document_id + 10_000]) == {document_id}
 
     # 5. A second manifest with the same listing changes nothing.
     again = client.post(

@@ -16,13 +16,16 @@ from mynotes.web import routes as web_routes
 GOOD = "mn_good-secret"
 
 
-def _info() -> tokens.TokenInfo:
+AGENT = "mn_agent-secret"
+
+
+def _info(scopes: tuple[str, ...] = ("web",)) -> tokens.TokenInfo:
     return tokens.TokenInfo(
         id=1,
         principal="alice",
         name="laptop",
         token_prefix="mn_good-",
-        scopes=("web",),
+        scopes=scopes,
         created_at=datetime.now(UTC),
         last_used_at=None,
         revoked_at=None,
@@ -34,7 +37,11 @@ def token_mode(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     settings = Settings(auth={"mode": "token"})
     monkeypatch.setattr(auth, "get_settings", lambda: settings)
     monkeypatch.setattr(web_routes, "get_settings", lambda: settings)
-    monkeypatch.setattr(tokens, "verify_token", lambda secret: _info() if secret == GOOD else None)
+    monkeypatch.setattr(
+        tokens,
+        "verify_token",
+        lambda secret: {GOOD: _info(), AGENT: _info(("ingest:alice-notes",))}.get(secret),
+    )
     monkeypatch.setattr(tokens, "resolve_prefixes", lambda user, groups: ["alice-notes"])
     return TestClient(create_app(), follow_redirects=False)
 
@@ -57,6 +64,13 @@ def test_login_page_and_bad_token(token_mode: TestClient) -> None:
     assert bad.status_code == 200
     assert "not valid" in bad.text
     assert "set-cookie" not in bad.headers
+
+
+def test_an_agent_token_cannot_sign_in(token_mode: TestClient) -> None:
+    response = token_mode.post("/ui/login", data={"token": AGENT, "next": "/ui/search"})
+    assert response.status_code == 200
+    assert "for an agent" in response.text
+    assert "set-cookie" not in response.headers
 
 
 def test_login_sets_cookie_and_signs_the_user_in(token_mode: TestClient) -> None:
