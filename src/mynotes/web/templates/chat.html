@@ -8,20 +8,6 @@
 {% block content %}
 <h1>Chat</h1>
 <form id="ask-form" class="chat-page">
-<aside class="chat-options">
-  <details class="panel options" open data-collapse-narrow>
-    <summary>Options</summary>
-    <div class="panel-body">
-      <div class="form-row">
-        <label><input type="checkbox" id="history" name="history" value="1" checked data-persist="chat.history"> Include old notes versions</label>
-      </div>
-      <div class="form-row">
-        <label class="field">Tags <input type="text" id="tags" name="tags" placeholder="comma-separated"></label>
-      </div>
-    </div>
-  </details>
-</aside>
-<div class="chat-main">
 <section id="conversation"{% if conversation_id %} data-conversation-id="{{ conversation_id }}"{% endif %}>
   {%- for turn in turns %}
   <article class="qa resumed">
@@ -44,9 +30,12 @@
   <textarea id="question" name="question" rows="3" required
             placeholder="Ask a question about your notes…"></textarea>
   <div class="composer-row">
+    <div class="chat-options">
+      <label><input type="checkbox" id="history" name="history" value="1" checked data-persist="chat.history"> Include old notes versions</label>
+      <label class="field">Tags <input type="text" id="tags" name="tags" placeholder="comma-separated"></label>
+    </div>
     <button type="submit" id="ask-button">Ask</button>
   </div>
-</div>
 </div>
 </form>
 {% endblock %}

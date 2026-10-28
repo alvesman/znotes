@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0rc9 (2026-10-28, preview of server mode)
+
+- **Chat page:** the "Include old notes versions" switch and the tags field moved from the
+  sidebar (above the conversation on phones) to the composer, under the question box and beside
+  **Ask**, on every screen width.
+
 ## 0.4.0rc8 (2026-10-28, preview of server mode)
 
 - **Access control:** a token reads notes only with the `web` or `admin` scope. An agent's token

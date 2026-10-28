@@ -786,11 +786,13 @@ def test_chat_and_search_have_labels_and_collapsible_panels(
     client = _client()
     chat = client.get("/ui/chat").text
     assert '<label for="question" class="visually-hidden">' in chat
-    assert '<details class="panel options" open data-collapse-narrow>' in chat
-    assert (
-        chat.index('class="chat-options"')
-        < chat.index('id="conversation"')
+    assert (  # the options sit under the question box, beside Ask
+        chat.index('id="conversation"')
         < chat.index('id="question"')
+        < chat.index('class="chat-options"')
+        < chat.index('id="history"')
+        < chat.index('id="tags"')
+        < chat.index('id="ask-button"')
     )
     assert "aria-live" not in chat  # the streaming answer is not a live region (chat.js announces)
     monkeypatch.setattr(service, "list_tags", lambda *args, **kwargs: [])

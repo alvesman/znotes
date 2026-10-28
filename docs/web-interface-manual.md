@@ -115,7 +115,7 @@ On a phone the menu folds behind a **Menu** button at the top. The switch at the
 2. Type your question in the box at the bottom, for example *What is the deadline for the Alfa project?*
 3. Click **Ask**.
 
-Pressing **Enter** sends the question; **Shift+Enter** adds a new line. The question box stays at the bottom of the page while you scroll through earlier answers. Its options (old note versions, tags) sit under **Options** next to the **Ask** button; on a phone they start folded.
+Pressing **Enter** sends the question; **Shift+Enter** adds a new line. The question box stays at the bottom of the page while you scroll through earlier answers. Its options (old note versions, tags) sit just under it, beside the **Ask** button.
 
 The answer appears word by word as it is written. While it is being written, the **Ask** button is greyed out.
 
