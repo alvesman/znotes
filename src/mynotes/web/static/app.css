@@ -662,8 +662,10 @@ button:disabled {
   min-width: 0;
 }
 
+/* A fieldset defaults to min-width: min-content, so a long tag would widen it past the sidebar. */
 fieldset.tag-filter {
   display: block;
+  min-width: 0;
 }
 
 .tag-options {
@@ -686,6 +688,13 @@ fieldset.tag-filter {
   font-size: var(--fs-sm);
   cursor: pointer;
   user-select: none;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.tag-option > span:first-of-type {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .tag-option:hover {

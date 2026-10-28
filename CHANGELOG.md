@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0rc10 (2026-10-28, preview of server mode)
+
+- **Search page:** a long tag name no longer pushes the Tags box out of the Filters sidebar; the
+  box stays inside it and long names wrap.
+- **Server setup:** the admin's `acl grant` names the token's `--user` (`acl grant manuel ""` for
+  a token created with `--user manuel`), and a running server sees a new grant within a minute.
+
 ## 0.4.0rc9 (2026-10-28, preview of server mode)
 
 - **Chat page:** the "Include old notes versions" switch and the tags field moved from the
