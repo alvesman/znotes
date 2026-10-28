@@ -50,6 +50,22 @@ token. The pieces:
    `mynotes token revoke <id>` manage them later; `mynotes root list` shows the roots and when
    each agent was last seen.
 
+## Which token to create
+
+All commands run on the server, from the compose directory; each prints its secret once.
+
+| Who | Command | What it allows |
+|---|---|---|
+| The agent on a person's machine | `docker compose exec worker mynotes token create --user alice --name laptop --root alice-notes` | Uploads to that root only (created for alice if missing); it cannot sign in or read |
+| A person, in the browser | `docker compose exec worker mynotes token create --user alice --name web --web` | Signs in at `/ui/login`; reads the roots alice owns and whatever `acl grant` adds |
+| An administrator | `docker compose exec worker mynotes token create --user admin --name web --admin` | Admin actions and sign-in; reading still needs `mynotes acl grant admin ""` (once) |
+| One person who is agent owner and admin | `docker compose exec worker mynotes token create --user manuel --name laptop --root manuel-notes --admin` | Everything above with a single secret, used by the agent and the browser |
+| An agent feeding several roots | `... token create --user alice --name laptop --root alice-notes --root alice-work` | Repeat `--root` for each |
+
+Later: `docker compose exec worker mynotes token list` shows them (id, user, scopes, last use) and
+`docker compose exec worker mynotes token revoke <id>` disables one; revoke and create a new one
+when a secret may have leaked.
+
 ## The agent, on a person's machine
 
 The agent must run the **same version as the server** (`MYNOTES_VERSION` in the server's
