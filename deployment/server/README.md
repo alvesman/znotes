@@ -82,7 +82,7 @@ Natively (Python 3.12 and uv, any OS):
 
 ```bash
 git clone https://github.com/alvesman/znotes.git mynotes && cd mynotes
-git checkout v0.4.0rc12                       # the server's version
+git checkout v0.4.0rc13                       # the server's version
 uv sync
 export MYNOTES_AGENT_SERVER_URL=https://notes.example.org
 export MYNOTES_AGENT_TOKEN=mn_...            # the agent token
@@ -99,7 +99,7 @@ docker run -d --name mynotes-agent --restart unless-stopped \
   -v "$HOME/Documents/notes:/notes:ro" \
   -e MYNOTES_AGENT_SERVER_URL=https://notes.example.org -e MYNOTES_AGENT_TOKEN=mn_... \
   -e MYNOTES_AGENT_ROOT=alice-notes -e MYNOTES_AGENT_PATH=/notes \
-  ghcr.io/alvesman/znotes:0.4.0rc12 mynotes agent run    # the server's version, not "latest"
+  ghcr.io/alvesman/znotes:0.4.0rc13 mynotes agent run    # the server's version, not "latest"
 ```
 
 The same settings fit in a `mynotes.yaml` next to the agent (`agent:` section, see the

@@ -1,11 +1,12 @@
 # Changelog
 
-## 0.4.0rc12 (2026-10-29, preview of server mode)
+## 0.4.0rc13 (2026-10-29, preview of server mode)
 
 - **Image size:** the application image drops from 1.24 GB to about 560 MB. It no longer carries
   uv (two-stage build), lingua's 290 MB of language models (fastText's 1 MB `lid.176` model,
   bundled by fast-langdetect, now tells Portuguese from English), datasketch with scipy (a short
-  MinHash of our own gives the same shingle Jaccard), pandas (XLSX is read with openpyxl
+  MinHash of our own gives the same shingle Jaccard, and graph expansion runs its own PageRank
+  power iteration instead of networkx's scipy-backed one), pandas (XLSX is read with openpyxl
   directly, in the same Markdown shape), nor the transitive sympy, grpcio and hf-xet that nothing
   used. Language detection now answers "unknown" for a text in a third language instead of
   forcing it into Portuguese or English, and ignores Markdown tables, URLs and numbers when

@@ -295,8 +295,50 @@ def _score_ppr(sub: Subgraph, seeds: Mapping[int, float]) -> dict[int, float]:
     personalization = {node: float(seeds.get(node, 0.0)) for node in graph}
     if sum(personalization.values()) <= 0:
         personalization = {node: 1.0 / graph.number_of_nodes() for node in graph}
-    ranks = nx.pagerank(graph, alpha=_PPR_ALPHA, weight="weight", personalization=personalization)
+    ranks = _personalized_pagerank(graph, _PPR_ALPHA, personalization)
     return {int(node): float(score) for node, score in ranks.items()}
+
+
+def _personalized_pagerank(
+    graph: nx.Graph,
+    alpha: float,
+    personalization: Mapping[int, float],
+    *,
+    max_iter: int = 100,
+    tol: float = 1.0e-6,
+) -> dict[int, float]:
+    """Personalized PageRank by power iteration, as ``networkx.pagerank`` computes it.
+
+    networkx's own routine needs scipy (139 MB in the image) for sparse
+    matrices; the subgraphs scored here have at most a few hundred nodes, so
+    plain dictionaries do. Semantics follow networkx: the personalization
+    vector is normalized, a dangling node (no edges) hands its mass out by
+    that vector, edge weights share a node's mass proportionally, and the
+    iteration stops when the L1 change drops below ``n * tol``; after
+    ``max_iter`` rounds the current estimate is returned as it is.
+    """
+    nodes = list(graph)
+    total = sum(personalization.values())
+    preference = {node: personalization[node] / total for node in nodes}
+    out_weight = {
+        node: sum(float(data.get("weight", 1.0)) for data in graph[node].values()) for node in nodes
+    }
+    ranks = dict(preference)
+    for _ in range(max_iter):
+        previous = ranks
+        ranks = dict.fromkeys(nodes, 0.0)
+        dangling = alpha * sum(previous[node] for node in nodes if out_weight[node] == 0.0)
+        for node in nodes:
+            if out_weight[node] == 0.0:
+                continue
+            share = alpha * previous[node] / out_weight[node]
+            for neighbor, data in graph[node].items():
+                ranks[neighbor] += share * float(data.get("weight", 1.0))
+        for node in nodes:
+            ranks[node] += (dangling + 1.0 - alpha) * preference[node]
+        if sum(abs(ranks[node] - previous[node]) for node in nodes) < len(nodes) * tol:
+            break
+    return ranks
 
 
 def evidence_chunks(
