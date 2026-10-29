@@ -348,14 +348,14 @@ def find_entities(
 ) -> list[KgEntity]:
     """Resolve a name reference to candidate entities (PLAN.md §6.1 lookup).
 
-    Tries the exact ``canonical_name`` first, then the normalized name or any
-    alias, then trigram similarity on ``norm_name``; the first step with hits
-    wins. Searches the workspace's active and merged entities, optionally
-    filtered by type. A merged entity is returned as the live entity it was
-    merged into (a name only its old record carries still resolves), so a
-    name shared by a record and its merged duplicate gives one match; with
-    ``include_merged`` the merged records are returned as they are, which
-    ``graph unmerge`` needs.
+    Tries the ``canonical_name`` first (ignoring case: entities are not told
+    apart by it), then the normalized name or any alias, then trigram
+    similarity on ``norm_name``; the first step with hits wins. Searches the
+    workspace's active and merged entities, optionally filtered by type. A
+    merged entity is returned as the live entity it was merged into (a name
+    only its old record carries still resolves), so a name shared by a record
+    and its merged duplicate gives one match; with ``include_merged`` the
+    merged records are returned as they are, which ``graph unmerge`` needs.
     """
     matches = _find_entity_rows(session, ref, type, limit)
     if include_merged:
@@ -411,7 +411,7 @@ def _find_entity_rows(session: Session, ref: str, type: str | None, limit: int) 
             statement = statement.where(KgEntity.type == type)
         return list(session.execute(statement).scalars())
 
-    exact = query(KgEntity.canonical_name == cleaned)
+    exact = query(func.lower(KgEntity.canonical_name) == cleaned.lower())
     if exact:
         return exact
     alias_ids = select(KgEntityAlias.entity_id).where(KgEntityAlias.alias_norm == norm)

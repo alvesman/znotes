@@ -638,6 +638,33 @@ def test_merged_name_resolves_to_the_live_entity(env: Env, monkeypatch: pytest.M
     assert session_get_status(drop_id) == "active"
 
 
+def test_entity_lookup_ignores_case(env: Env) -> None:
+    """A canonical name matches however it is typed, and that step still wins.
+
+    "Zeta" and "zeta" gave different results: the exact step was
+    case-sensitive, so "zeta" skipped it and the normalized step listed every
+    entity folding to ``zeta`` ("Zeta plugin" strips its type word).
+    """
+    from mynotes.graph.extract import ExtractedEntity
+    from mynotes.graph.resolve import create_entity, entity_norm
+    from mynotes.graph.store import find_entities
+
+    with session_scope() as session:
+        ids = []
+        for name, entity_type in [("Zeta", "Organization"), ("Zeta plugin", "Technology")]:
+            extracted = ExtractedEntity(name=name, type=entity_type)
+            entity_id, created = create_entity(
+                session, env.workspace_id, extracted, entity_norm(name, entity_type)
+            )
+            assert created
+            ids.append(entity_id)
+        org_id, plugin_id = ids
+        assert entity_norm("Zeta plugin", "Technology") == "zeta"  # same key as "Zeta"
+        for spelling in ("Zeta", "zeta", "zETa", "  Zeta "):
+            assert [entity.id for entity in find_entities(session, spelling)] == [org_id]
+        assert [entity.id for entity in find_entities(session, "zeta PLUGIN")] == [plugin_id]
+
+
 def test_unmerge_restores_both_and_records_distinct_pair(
     env: Env, monkeypatch: pytest.MonkeyPatch
 ) -> None:

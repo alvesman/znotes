@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0rc11 (2026-10-29, preview of server mode)
+
+- **Knowledge graph:** looking an entity up by name ignores the case of the name: `zeta` and
+  `Zeta` give the same answer. Before, only the exact spelling of the canonical name took the
+  first lookup step, so another spelling could list more candidates.
+
 ## 0.4.0rc10 (2026-10-28, preview of server mode)
 
 - **Search page:** a long tag name no longer pushes the Tags box out of the Filters sidebar; the
