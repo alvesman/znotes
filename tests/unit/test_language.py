@@ -26,3 +26,16 @@ def test_short_text_returns_none() -> None:
     assert detect_language("ok") is None
     assert detect_language("") is None
     assert detect_language("hello world") is None  # 10 letters, below the minimum
+
+
+def test_other_language_returns_none() -> None:
+    french = (
+        "Cette phrase est écrite en français pour vérifier que le détecteur ne la "
+        "classe ni comme portugais ni comme anglais."
+    )
+    assert detect_language(french) is None
+
+
+def test_short_queries_are_detected() -> None:
+    assert detect_language("reunião de projeto com a equipa") == "pt"
+    assert detect_language("project meeting notes for the team") == "en"

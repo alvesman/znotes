@@ -9,14 +9,76 @@ archive-folder move, capped at 1.0.
 
 from __future__ import annotations
 
+import hashlib
 import math
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
+from functools import lru_cache
 
-from datasketch import MinHash
+import numpy as np
 
 from mynotes.text.normalize import normalize_key
 
 _SHINGLE_WORDS = 5
+
+_MERSENNE_PRIME = (1 << 61) - 1
+_MAX_HASH = (1 << 32) - 1
+_SEED = 1
+_BATCH = 4096
+"""Shingles hashed per step: bounds the ``shingles by num_perm`` work matrix."""
+
+
+@lru_cache(maxsize=4)
+def _permutations(num_perm: int) -> tuple[np.ndarray, np.ndarray]:
+    """The ``a`` and ``b`` of the ``num_perm`` universal hash functions, fixed by seed.
+
+    Both are below 2**32, so ``a * h + b`` with a 32-bit ``h`` never overflows
+    an unsigned 64-bit integer.
+    """
+    generator = np.random.default_rng(_SEED)
+    a = generator.integers(1, _MAX_HASH, size=num_perm, dtype=np.uint64)
+    b = generator.integers(0, _MAX_HASH, size=num_perm, dtype=np.uint64)
+    return a, b
+
+
+class MinHash:
+    """A MinHash signature: the minimum of ``num_perm`` hashes over the items seen.
+
+    Each item is hashed to 32 bits (the first bytes of its SHA-1), then
+    permuted by ``(a * h + b) mod (2**61 - 1)``, masked to 32 bits; the
+    signature keeps the minimum per permutation. Same scheme as datasketch's
+    ``MinHash``, which this replaces: datasketch pulled scipy (139 MB in the
+    image) for an LSH index mynotes never used.
+    """
+
+    __slots__ = ("_a", "_b", "hashvalues")
+
+    def __init__(self, num_perm: int = 128) -> None:
+        self._a, self._b = _permutations(num_perm)
+        self.hashvalues = np.full(num_perm, _MAX_HASH, dtype=np.uint64)
+
+    def update_batch(self, items: Iterable[bytes]) -> None:
+        """Fold the items into the signature."""
+        batch: list[int] = []
+        for item in items:
+            digest = hashlib.sha1(item, usedforsecurity=False).digest()
+            batch.append(int.from_bytes(digest[:4], "little"))
+            if len(batch) == _BATCH:
+                self._fold(batch)
+                batch = []
+        if batch:
+            self._fold(batch)
+
+    def _fold(self, hashes: list[int]) -> None:
+        values = np.asarray(hashes, dtype=np.uint64)
+        permuted = ((values[:, None] * self._a + self._b) % _MERSENNE_PRIME) & _MAX_HASH
+        self.hashvalues = np.minimum(self.hashvalues, permuted.min(axis=0))
+
+    def jaccard(self, other: MinHash) -> float:
+        """Estimate the Jaccard similarity of the two item sets."""
+        if len(self.hashvalues) != len(other.hashvalues):
+            raise ValueError("MinHash signatures must have the same num_perm")
+        matches = int(np.count_nonzero(self.hashvalues == other.hashvalues))
+        return matches / len(self.hashvalues)
 
 
 def _shingles(text: str) -> list[bytes]:
@@ -42,7 +104,7 @@ def minhash_of(text: str, num_perm: int = 128) -> MinHash:
         num_perm: Number of permutation functions in the signature.
 
     Returns:
-        A :class:`datasketch.MinHash` over the 5-word shingles of
+        A :class:`MinHash` over the 5-word shingles of
         :func:`mynotes.text.normalize.normalize_key`-normalized ``text``.
     """
     return _minhash_from(_shingles(text), num_perm)
@@ -51,8 +113,7 @@ def minhash_of(text: str, num_perm: int = 128) -> MinHash:
 def _minhash_from(shingles: Sequence[bytes], num_perm: int = 128) -> MinHash:
     """Build a MinHash signature from precomputed shingles."""
     signature = MinHash(num_perm=num_perm)
-    for shingle in shingles:
-        signature.update(shingle)
+    signature.update_batch(shingles)
     return signature
 
 

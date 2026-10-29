@@ -1,6 +1,6 @@
 """Office, HTML and EPUB extractor built on markitdown (PLAN.md §7.2).
 
-markitdown turns DOCX, PPTX, XLSX, HTML and EPUB into Markdown with headings
+markitdown turns DOCX, PPTX, HTML and EPUB into Markdown with headings
 preserved (XLSX sheets as ``## SheetName`` + table, PPTX slides marked with
 ``<!-- Slide number: N -->`` and speaker notes under ``### Notes:``). This
 module feeds that Markdown into the shared ``markdown_to_blocks`` IR builder,
@@ -70,7 +70,12 @@ def get_markitdown() -> MarkItDown:
 
 
 class OfficeExtractor:
-    """Extractor for DOCX, PPTX, XLSX, HTML and EPUB via markitdown."""
+    """Extractor for DOCX, PPTX, XLSX, HTML and EPUB via markitdown.
+
+    XLSX is read with openpyxl directly, in the same Markdown shape markitdown
+    gives (a ``##`` heading per sheet, then a table): markitdown's own XLSX
+    path goes through pandas, 72 MB the image does not otherwise need.
+    """
 
     name = "markitdown"
     version = "1"
@@ -90,8 +95,11 @@ class OfficeExtractor:
             are resolved.
         """
         fmt = FORMATS.get(path.suffix.lower().lstrip("."), path.suffix.lower().lstrip("."))
-        markdown = get_markitdown().convert(str(path)).markdown
-        logger.debug("markitdown produced %d characters for %s", len(markdown), path.name)
+        if fmt == "xlsx":
+            markdown = xlsx_to_markdown(path)
+        else:
+            markdown = get_markitdown().convert(str(path)).markdown
+        logger.debug("extraction produced %d characters for %s", len(markdown), path.name)
 
         if fmt == "pptx":
             blocks, links, first_slide_title = _pptx_blocks(markdown)
@@ -133,6 +141,45 @@ class OfficeExtractor:
             mtime_ns=path.stat().st_mtime_ns,
         )
         return document
+
+
+def xlsx_to_markdown(path: Path) -> str:
+    """Render a workbook as Markdown: a ``##`` heading per sheet, then its rows as a table.
+
+    The first non-empty row is the header. Empty rows are skipped; formulas
+    give their cached value; ``|`` and line breaks inside a cell are escaped
+    or collapsed so the table stays one row per line. A sheet without content
+    gives only its heading.
+    """
+    from openpyxl import load_workbook
+
+    workbook = load_workbook(path, read_only=True, data_only=True)
+    try:
+        parts: list[str] = []
+        for sheet in workbook.worksheets:
+            rows = [
+                [_cell_text(value) for value in row] for row in sheet.iter_rows(values_only=True)
+            ]
+            rows = [row for row in rows if any(row)]
+            lines = [f"## {sheet.title}"]
+            if rows:
+                width = max(len(row) for row in rows)
+                padded = [row + [""] * (width - len(row)) for row in rows]
+                lines.append("| " + " | ".join(padded[0]) + " |")
+                lines.append("| " + " | ".join(["---"] * width) + " |")
+                lines.extend("| " + " | ".join(row) + " |" for row in padded[1:])
+            parts.append("\n".join(lines))
+        return "\n\n".join(parts) + "\n"
+    finally:
+        workbook.close()
+
+
+def _cell_text(value: object) -> str:
+    """One cell as table text: None empty, whole floats without ``.0``, no bars or newlines."""
+    if value is None:
+        return ""
+    text = str(int(value)) if isinstance(value, float) and value.is_integer() else str(value)
+    return " ".join(text.split()).replace("|", "\\|")
 
 
 def _pptx_blocks(markdown: str) -> tuple[list[IRBlock], list[Link], str | None]:

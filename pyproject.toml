@@ -1,6 +1,6 @@
 [project]
 name = "mynotes"
-version = "0.4.0rc11"
+version = "0.4.0rc12"
 description = "Ask questions about a folder of notes: local RAG with hybrid search, citations, versions and a knowledge graph."
 readme = "README.md"
 license = "AGPL-3.0-or-later"
@@ -24,15 +24,16 @@ dependencies = [
     "blake3>=1.0.9",
     "python-frontmatter>=1.3.0",
     "markdown-it-py>=4.2.0",
-    "lingua-language-detector>=2.2.0",
+    "fast-langdetect>=1.1.0",
     "pymupdf==1.26.7",
     "pymupdf4llm==0.2.9",
     "tokenizers>=0.23.2",
     "tiktoken>=0.14.0",
     "croniter>=6.2.4",
     "watchfiles>=1.3.0",
-    "datasketch>=2.0.0",
-    "markitdown[docx,pptx,xlsx]>=0.1.8",
+    "numpy>=2.5.3",
+    "markitdown[docx,pptx]>=0.1.8",
+    "openpyxl>=3.1.5",
     "networkx>=3.7",
     "fastapi>=0.141.1",
     "uvicorn[standard]>=0.54.0",
@@ -49,8 +50,6 @@ mynotes = "mynotes.cli:app"
 
 [dependency-groups]
 dev = [
-    "numpy>=2.5.3",
-    "openpyxl>=3.1.5",
     "psutil>=7.2.2",
     "pytest",
     "python-docx>=1.2.0",
@@ -85,4 +84,17 @@ markers = [
     "integration: needs Docker (testcontainers Postgres/OpenSearch)",
     "live: calls real model endpoints; needs MYNOTES_LIVE_TESTS=1",
     "watcher: filesystem watcher tests that run on every OS (no Docker)",
+]
+
+[tool.uv]
+# Transitive packages the image does not need: an impossible marker keeps them out of the
+# lock's install set (uv has no "exclude"). sympy/mpmath: onnxruntime (via markitdown's magika)
+# only needs them for model tooling, not for an InferenceSession. opensearch-protobufs/grpcio:
+# opensearch-py pins them for its gRPC transport, which mynotes never uses. hf-xet: an optional
+# faster downloader for huggingface-hub; tokenizers downloads fine without it.
+override-dependencies = [
+    "sympy; sys_platform == 'never'",
+    "mpmath; sys_platform == 'never'",
+    "opensearch-protobufs; sys_platform == 'never'",
+    "hf-xet; sys_platform == 'never'",
 ]
