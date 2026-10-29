@@ -9,7 +9,7 @@ token. The pieces:
 | Where                 | What                                                                                        |
 | --------------------- | ------------------------------------------------------------------------------------------- |
 | Server (this folder)  | `postgres`, `opensearch`, `init`, `worker`, `web`, and optionally `caddy` (TLS) |
-| Each person's machine | `mynotes agent run`, natively with uv or in a container                                   |
+| Each person's machine | `mynotes agent run`, natively with uv or in the agent container (`<version>-agent`)       |
 
 ## Server setup
 
@@ -82,8 +82,8 @@ Natively (Python 3.12 and uv, any OS):
 
 ```bash
 git clone https://github.com/alvesman/znotes.git mynotes && cd mynotes
-git checkout v0.4.0rc13                       # the server's version
-uv sync
+git checkout v0.4.0rc14                       # the server's version
+uv sync --no-dev                             # the agent's dependencies only
 export MYNOTES_AGENT_SERVER_URL=https://notes.example.org
 export MYNOTES_AGENT_TOKEN=mn_...            # the agent token
 export MYNOTES_AGENT_ROOT=alice-notes
@@ -92,14 +92,15 @@ uv run mynotes agent sync                    # one full sync, then exit
 uv run mynotes agent run                     # sync, then watch the folder until stopped
 ```
 
-Or in a container, with the folder mounted read-only:
+Or in a container, with the folder mounted read-only. The `-agent` image carries only what the
+agent needs (about a third of the server image):
 
 ```bash
 docker run -d --name mynotes-agent --restart unless-stopped \
   -v "$HOME/Documents/notes:/notes:ro" \
   -e MYNOTES_AGENT_SERVER_URL=https://notes.example.org -e MYNOTES_AGENT_TOKEN=mn_... \
   -e MYNOTES_AGENT_ROOT=alice-notes -e MYNOTES_AGENT_PATH=/notes \
-  ghcr.io/alvesman/znotes:0.4.0rc13 mynotes agent run    # the server's version, not "latest"
+  ghcr.io/alvesman/znotes:0.4.0rc14-agent              # the server's version, not "latest"
 ```
 
 The same settings fit in a `mynotes.yaml` next to the agent (`agent:` section, see the

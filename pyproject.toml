@@ -1,12 +1,14 @@
 [project]
 name = "mynotes"
-version = "0.4.0rc13"
+version = "0.4.0rc14"
 description = "Ask questions about a folder of notes: local RAG with hybrid search, citations, versions and a knowledge graph."
 readme = "README.md"
 license = "AGPL-3.0-or-later"
 license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 authors = [{ name = "Manuel Alves" }]
 requires-python = ">=3.12,<3.13"
+# What `mynotes agent` needs (the thin client on each person's machine). Everything the
+# server, worker and web UI need is the `server` extra: `uv sync --extra server`.
 dependencies = [
     "typer",
     "rich",
@@ -16,12 +18,17 @@ dependencies = [
     "platformdirs>=4.11.12",
     "python-dotenv>=1.2.3",
     "httpx>=0.28.1",
+    "pathspec>=1.1.1",
+    "blake3>=1.0.9",
+    "watchfiles>=1.3.0",
+]
+
+[project.optional-dependencies]
+server = [
     "sqlalchemy>=2.0.54",
     "psycopg[binary]>=3.3.6",
     "alembic>=1.20.0",
     "opensearch-py>=3.2.0",
-    "pathspec>=1.1.1",
-    "blake3>=1.0.9",
     "python-frontmatter>=1.3.0",
     "markdown-it-py>=4.2.0",
     "fast-langdetect>=1.1.0",
@@ -30,7 +37,6 @@ dependencies = [
     "tokenizers>=0.23.2",
     "tiktoken>=0.14.0",
     "croniter>=6.2.4",
-    "watchfiles>=1.3.0",
     "numpy>=2.5.3",
     "markitdown[docx,pptx]>=0.1.8",
     "openpyxl>=3.1.5",
@@ -50,6 +56,7 @@ mynotes = "mynotes.cli:app"
 
 [dependency-groups]
 dev = [
+    "mynotes[server]",
     "psutil>=7.2.2",
     "pytest",
     "python-docx>=1.2.0",

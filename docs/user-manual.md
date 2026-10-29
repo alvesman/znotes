@@ -1060,6 +1060,11 @@ uv run mynotes agent sync       # one sync, then exit
 uv run mynotes agent status     # what the server knows about this root
 ```
 
+The agent needs only the core dependencies: `uv sync --no-dev` installs those alone (the
+`server` extra is what the server, worker and web UI add), and the image
+`ghcr.io/alvesman/znotes:<version>-agent` carries just that, about a third of the server image
+(see `deployment/server/README.md` for the `docker run` line).
+
 On the server the notes of a remote root appear under the root's name (`alice-notes/ideas/plan.md`), and alice's read access is granted under that prefix when the root is created. **Open in app** is not offered for uploaded notes; **Open** and **Download** serve the server's copy. A knowledge-graph entity exists for a person only if some of its evidence is in a document they may read.
 
 The MCP server and the `ask` and `search` commands need direct database access, so in server mode they run on the server, and without access control: they see every person's notes. Only the server's administrator should use them.

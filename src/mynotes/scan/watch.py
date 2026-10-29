@@ -37,7 +37,6 @@ from mynotes.config import RootConfig, Settings, get_settings
 from mynotes.platform.fsinfo import WatchBackend, inotify_watch_limit, watch_backend_for
 from mynotes.platform.paths import to_rel_path
 from mynotes.scan.ignore import IgnoreRules
-from mynotes.scan.scanner import scan_root
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +146,17 @@ class MynotesFilter(DefaultFilter):
         if not super().__call__(change, path):
             return False
         return _relevant_rel(self._rules.root, path, self._rules) is not None
+
+
+def scan_root(*args: Any, **kwargs: Any) -> Any:
+    """:func:`mynotes.scan.scanner.scan_root`, imported when first called.
+
+    The scanner pulls in the database layer, which the agent (sharing this
+    watcher) never needs; tests replace this name.
+    """
+    from mynotes.scan.scanner import scan_root as run_scan
+
+    return run_scan(*args, **kwargs)
 
 
 def handle_batch(batch: HintBatch) -> None:

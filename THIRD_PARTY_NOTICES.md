@@ -25,6 +25,7 @@ mynotes is licensed under the GNU Affero General Public License v3.0 or later (s
 | certifi | 2026.7.22 | Mozilla Public License 2.0 (MPL 2.0) |
 | charset-normalizer | 3.5.1 | MIT |
 | click | 8.5.0 | BSD-3-Clause |
+| cobble | 0.1.4 | BSD License |
 | coloredlogs | 15.0.1 | MIT License |
 | colorlog | 6.12.0 | MIT License |
 | croniter | 6.2.4 | MIT |
@@ -48,8 +49,10 @@ mynotes is licensed under the GNU Affero General Public License v3.0 or later (s
 | Jinja2 | 3.1.6 | BSD License |
 | jsonschema | 4.26.0 | MIT |
 | jsonschema-specifications | 2025.9.1 | MIT |
+| lxml | 6.1.3 | BSD-3-Clause |
 | magika | 0.6.3 | Apache Software License |
 | Mako | 1.4.3 | MIT |
+| mammoth | 1.11.0 | BSD License |
 | markdown-it-py | 4.2.0 | MIT License |
 | markdownify | 1.2.3 | MIT License |
 | markitdown | 0.1.8 | MIT |
@@ -63,6 +66,7 @@ mynotes is licensed under the GNU Affero General Public License v3.0 or later (s
 | opensearch-py | 3.2.0 | Apache Software License |
 | packaging | 26.3 | Apache-2.0 OR BSD-2-Clause |
 | pathspec | 1.1.1 | Mozilla Public License 2.0 (MPL 2.0) |
+| pillow | 12.3.0 | MIT-CMU |
 | platformdirs | 4.11.12 | MIT |
 | protobuf | 7.36.2 | 3-Clause BSD License |
 | psycopg | 3.3.6 | LGPL-3.0-only |
@@ -77,6 +81,7 @@ mynotes is licensed under the GNU Affero General Public License v3.0 or later (s
 | python-dotenv | 1.2.3 | BSD-3-Clause |
 | python-frontmatter | 1.3.0 | MIT |
 | python-multipart | 0.0.32 | Apache-2.0 |
+| python-pptx | 1.0.2 | MIT License |
 | PyYAML | 6.0.3 | MIT License |
 | referencing | 0.37.0 | MIT |
 | regex | 2026.9.10 | Apache-2.0 AND CNRI-Python |
@@ -100,6 +105,7 @@ mynotes is licensed under the GNU Affero General Public License v3.0 or later (s
 | urllib3 | 2.8.0 | MIT |
 | uvicorn | 0.54.0 | BSD-3-Clause |
 | watchfiles | 1.3.0 | MIT License |
+| xlsxwriter | 3.2.9 | BSD License |
 
 Copyleft components: certifi (Mozilla Public License 2.0 (MPL 2.0)), pathspec (Mozilla Public License 2.0 (MPL 2.0)), psycopg (LGPL-3.0-only), PyMuPDF (Dual Licensed - GNU AFFERO GPL 3.0 or Artifex Commercial License), pymupdf4llm (Dual Licensed - GNU AFFERO GPL 3.0 or Artifex Commercial License), tqdm (MPL-2.0 AND MIT).
 

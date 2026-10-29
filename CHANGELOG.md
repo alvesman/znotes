@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0rc14 (2026-10-29, preview of server mode)
+
+- **Agent image:** `ghcr.io/alvesman/znotes:<version>-agent` holds only what `mynotes agent`
+  needs, about a third of the server image. The `pyproject.toml` dependencies are now the
+  agent's core set; everything the server, worker and web UI need is the `server` extra, which
+  the default (dev) install includes. A native install of the agent alone is
+  `uv sync --no-dev`; a server without the dev tools is `uv sync --no-dev --extra server`. The
+  file watcher no longer imports the scanner (and with it the database layer) at module level.
+  `publish_image.sh` builds and pushes both images.
+
 ## 0.4.0rc13 (2026-10-29, preview of server mode)
 
 - **Image size:** the application image drops from 1.24 GB to about 560 MB. It no longer carries
