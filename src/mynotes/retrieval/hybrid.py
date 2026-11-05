@@ -14,6 +14,7 @@ in task 28.
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import replace
 from datetime import datetime
 from typing import Any
@@ -48,16 +49,33 @@ def _status_clause(f: SearchFilters) -> dict[str, Any]:
 
 
 def _folder_clause(folders: list[str]) -> dict[str, Any]:
-    """Folded folder-prefix filter over ``path_ancestors_folded`` (PLAN.md §6.1)."""
-    return {
-        "bool": {
-            "should": [
-                {"term": {"path_ancestors_folded": normalize_path_key(folder)}}
-                for folder in folders
-            ],
-            "minimum_should_match": 1,
-        }
-    }
+    """Folded folder filter over ``path_ancestors_folded`` (PLAN.md §6.1).
+
+    A folder key matches a document whose path has that folder at any level:
+    ``setup`` and ``ops/setup`` both find ``alice-notes/Ops/Setup/x.md``,
+    as does the full prefix. Each key is one ``term`` (the key is an ancestor
+    path) plus one ``wildcard`` (an ancestor path ends with ``/key``).
+    """
+    should: list[dict[str, Any]] = []
+    for folder in folders:
+        key = normalize_path_key(folder)
+        should.append({"term": {"path_ancestors_folded": key}})
+        should.append(
+            {"wildcard": {"path_ancestors_folded": {"value": "*/" + _wildcard_escape(key)}}}
+        )
+    return {"bool": {"should": should, "minimum_should_match": 1}}
+
+
+def _wildcard_escape(value: str) -> str:
+    """Escape the characters a ``wildcard`` query treats specially."""
+    return value.replace("\\", "\\\\").replace("*", "\\*").replace("?", "\\?")
+
+
+def folder_matches(folder_key: str, ancestors: Sequence[str]) -> bool:
+    """Whether a folded folder key names one of the path's folders at any level."""
+    return any(
+        ancestor == folder_key or ancestor.endswith("/" + folder_key) for ancestor in ancestors
+    )
 
 
 def _acl_clause(prefixes: list[str]) -> dict[str, Any]:
@@ -286,7 +304,7 @@ def hit_matches_filters(hit: SearchHit, f: SearchFilters) -> bool:
         return False
     if f.folders:
         ancestors = path_ancestors_folded(hit.path)
-        if not any(normalize_path_key(folder) in ancestors for folder in f.folders):
+        if not any(folder_matches(normalize_path_key(folder), ancestors) for folder in f.folders):
             return False
     if f.formats and hit.format not in f.formats:
         return False

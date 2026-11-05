@@ -90,7 +90,7 @@ def test_status_json_is_valid_json(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("mynotes.core.setup.collect_status", lambda: canned)
     result = runner.invoke(app, ["status", "--json"])
     assert result.exit_code == 0
-    assert json.loads(result.output) == canned
+    assert json.loads(result.stdout) == canned
 
 
 def test_status_panels_render(monkeypatch: pytest.MonkeyPatch) -> None:

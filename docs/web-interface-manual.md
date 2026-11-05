@@ -169,7 +169,7 @@ You can also write filters inside the question itself:
 | Write in the question | Effect | Example |
 |---|---|---|
 | `#tag` | Only documents with that tag | *What is the budget? #clienta* |
-| `in:folder` | Only documents under that folder (use quotes if the name has spaces) | *Who is responsible? in:projects/alfa* or *in:"Project Notes/alfa"* |
+| `in:folder` | Only documents inside a folder of that name, at any level, or under that path (use quotes if the name has spaces) | *Who is responsible? in:alfa*, *in:projects/alfa* or *in:"Project Notes/alfa"* |
 | `format:type` | Only one file type: `md`, `txt`, `pdf`, `docx`, `pptx`, `xlsx`, `html`, `epub` | *What does the contract say about payment? format:pdf* |
 | `since:date` | Only documents dated on or after it (`YYYY-MM` or `YYYY-MM-DD`) | *What did we decide? since:2026-01* |
 | `until:date` | Only documents dated on or before it | *What was planned? until:2025-12-31* |
@@ -510,7 +510,7 @@ How many files in your folders mynotes can't read (unsupported formats, such as 
 | Include older versions | Chat: tick **Include old notes versions**; Search: tick **include notes history**; or write `history:` |
 | Reread or delete past chats | **History** |
 | Limit to a tag | Chat: **tags** box; Search: click tags in the **Tags** section; or write `#tag` |
-| Limit to a folder | Search: **Folder**; or write `in:folder` |
+| Limit to a folder | Search: **Folder** (a folder name at any level, or a path); or write `in:folder` |
 | Open a cited document | The links on its source line: **Open**, **View note**, **Download**, **Open in app** |
 | Accept or reject a suggested tag | The document page's tags, or **Reviews → Tags** |
 | Confirm that a document replaces another | **Reviews → Versions** → **Confirm** (or tick several pairs and **Confirm selected**) |

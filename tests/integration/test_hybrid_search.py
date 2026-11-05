@@ -317,6 +317,34 @@ def test_folder_filter_matches_folded_prefix(env: Env) -> None:
     assert all(hit.path.startswith("folderA/") for hit in hits)
 
 
+def test_folder_filter_matches_a_folder_at_any_level(env: Env) -> None:
+    """``folders=["setup"]`` finds ``folderA/Setup/x.md`` like ``folderA/Setup`` does."""
+    ingest_corpus(env)
+    write_file(env.root_path / "folderA/Setup/portainer.md", _frigorifico_note())
+    scan_root(env.root_id)
+    drain_extract_chunk()
+    with session_scope() as session:
+        version_id = session.execute(
+            select(Document.latest_version_id)
+            .join(File, Document.current_file_id == File.id)
+            .where(File.rel_path == "folderA/Setup/portainer.md")
+        ).scalar_one()
+    pipeline.handle_embed(
+        {"version_id": version_id},
+        JobContext(worker_id="test", settings=env.settings, embedder=env.fake),
+    )
+    sync_once()
+    refresh(env)
+
+    for key in ("Setup", "SETUP", "foldera/setup", "folderA/Setup"):
+        hits = hybrid_search("frigorifico", SearchFilters(folders=[key]), size=10)
+        assert {hit.path for hit in hits} == {"folderA/Setup/portainer.md"}, key
+    nothing = hybrid_search("frigorifico", SearchFilters(folders=["etup"]), size=10)
+    assert nothing == []  # a folder name, not a substring
+    both = hybrid_search("frigorifico", SearchFilters(folders=["folderA"]), size=10)
+    assert {hit.path for hit in both} == {"folderA/frigorifico.md", "folderA/Setup/portainer.md"}
+
+
 def test_superseded_document_needs_history_intent(env: Env) -> None:
     """A superseded document is excluded by default and returned with intent."""
     ingest_corpus(env)
@@ -379,7 +407,7 @@ def test_cli_search_json_prints_valid_json(env: Env) -> None:
     result = CliRunner().invoke(app, ["search", "frigorifico", "--json", "-n", "5"])
 
     assert result.exit_code == 0, result.output
-    payload = json.loads(result.output)
+    payload = json.loads(result.stdout)
     assert isinstance(payload, list) and payload
     assert len(payload) <= 5
     first = payload[0]

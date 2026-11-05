@@ -415,7 +415,7 @@ def test_cli_search_json_runs_the_full_pipeline(env: Env) -> None:
     result = CliRunner().invoke(app, ["search", "frigorifico", "--json", "-n", "5"])
 
     assert result.exit_code == 0, result.output
-    payload = json.loads(result.output)
+    payload = json.loads(result.stdout)
     assert isinstance(payload, list) and payload
     assert len(payload) <= 5
     first = payload[0]
@@ -433,7 +433,7 @@ def test_cli_search_raw_returns_plain_hybrid_hits(env: Env) -> None:
     result = CliRunner().invoke(app, ["search", "frigorifico", "--raw", "--json", "-n", "5"])
 
     assert result.exit_code == 0, result.output
-    payload = json.loads(result.output)
+    payload = json.loads(result.stdout)
     assert payload
     assert payload[0]["path"] == "folderA/frigorifico.md"
     assert payload[0]["rerank_score"] is None

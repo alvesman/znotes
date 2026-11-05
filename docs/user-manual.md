@@ -426,7 +426,7 @@ You can narrow `ask` and `search` in two equivalent ways: with options, or by wr
 | Filter | Option | Inline | Meaning |
 |---|---|---|---|
 | Tag | `--tag clienta` | `#clienta` | Only documents with that tag |
-| Folder | `--in projects/alfa` | `in:projects/alfa` or `in:"Project Notes/alfa"` | Only documents under that folder (relative to the root). Use quotes inline when the folder name has spaces |
+| Folder | `--in alfa` or `--in projects/alfa` | `in:alfa`, `in:projects/alfa` or `in:"Project Notes/alfa"` | Only documents inside a folder of that name, wherever it is, or under that path (one or more folders in a row, anywhere below the root). Use quotes inline when the folder name has spaces |
 | File type | `--format pdf` | `format:pdf` | Only that file type |
 | From a date | `--since 2026-01` | `since:2026-01` | Only documents dated on or after it |
 | Up to a date | — | `until:2026-06-30` | Only documents dated on or before it |

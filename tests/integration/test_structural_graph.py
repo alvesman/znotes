@@ -298,7 +298,7 @@ def test_cli_graph_doc_prints_json_and_lists_ambiguities(graph_env: GraphEnv) ->
 
     result = runner.invoke(app, ["graph", "doc", "notes/a.md", "--json"])
     assert result.exit_code == 0, result.output
-    data = json.loads(result.output)
+    data = json.loads(result.stdout)
     assert data["document"]["document_id"] == ids["a"]
     assert [node["path"] for node in data["links_out"]] == ["notes/b.md"]
     assert [node["path"] for node in data["links_in"]] == ["notes/c.md"]

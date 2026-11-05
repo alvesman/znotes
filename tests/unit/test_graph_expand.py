@@ -144,6 +144,11 @@ class TestHitMatchesFilters:
 
         assert hit_matches_filters(hit, SearchFilters(folders=["projetos"]))
         assert not hit_matches_filters(hit, SearchFilters(folders=["arquivo"]))
+        # A folder name matches at any level, and so does a partial path; a file name does not.
+        assert hit_matches_filters(hit, SearchFilters(folders=["Alfa"]))
+        assert hit_matches_filters(hit, SearchFilters(folders=["projetos/alfa"]))
+        assert not hit_matches_filters(hit, SearchFilters(folders=["nota.md"]))
+        assert not hit_matches_filters(hit, SearchFilters(folders=["fa"]))
         assert hit_matches_filters(hit, SearchFilters(formats=["md"]))
         assert not hit_matches_filters(hit, SearchFilters(formats=["pdf"]))
         assert hit_matches_filters(hit, SearchFilters(since=datetime(2026, 1, 1, tzinfo=UTC)))

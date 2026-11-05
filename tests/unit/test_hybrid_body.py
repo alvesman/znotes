@@ -97,18 +97,24 @@ def test_acl_uses_exact_fields_and_empty_list_blocks_everything() -> None:
     assert {"bool": {"must_not": {"match_all": {}}}} not in none
 
 
-def test_folders_use_folded_ancestors() -> None:
-    """Folder prefixes are folded per segment into ``path_ancestors_folded``."""
+def test_folders_match_folded_ancestors_at_any_level() -> None:
+    """A folder key is folded per segment and matches as a prefix or deeper in the path."""
     clauses = build_filter_clauses(SearchFilters(folders=["Projetos/Ação"]))
     folder = [clause for clause in clauses if "path_ancestors_folded" in str(clause)]
     assert folder == [
         {
             "bool": {
-                "should": [{"term": {"path_ancestors_folded": "projetos/acao"}}],
+                "should": [
+                    {"term": {"path_ancestors_folded": "projetos/acao"}},
+                    {"wildcard": {"path_ancestors_folded": {"value": "*/projetos/acao"}}},
+                ],
                 "minimum_should_match": 1,
             }
         }
     ]
+    starry = build_filter_clauses(SearchFilters(folders=["a*b?"]))
+    wildcard = next(c for c in starry if "wildcard" in str(c))["bool"]["should"][1]
+    assert wildcard == {"wildcard": {"path_ancestors_folded": {"value": "*/a\\*b\\?"}}}
 
 
 def test_tags_formats_dates_and_workspace_clauses() -> None:

@@ -506,7 +506,7 @@ def test_cli_versions_list_json(review_env: ReviewEnv) -> None:
     result = CliRunner().invoke(app, ["versions", "list", "--json"])
 
     assert result.exit_code == 0, result.output
-    payload = json.loads(result.output)
+    payload = json.loads(result.stdout)
     assert isinstance(payload, list) and len(payload) == 1
     relation = payload[0]
     assert relation["status"] == "auto"

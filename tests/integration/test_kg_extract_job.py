@@ -482,7 +482,7 @@ def test_extract_status_reports_counts(env: KgEnv, monkeypatch: pytest.MonkeyPat
     result = CliRunner().invoke(app, ["graph", "extract-status", "--json"])
 
     assert result.exit_code == 0, result.output
-    data = json.loads(result.output)
+    data = json.loads(result.stdout)
     assert data["total"] == 4, "three plan groups plus one idea group"
     assert data["cached"] == 3
     assert data["pending"] == 1

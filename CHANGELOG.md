@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0rc17 (2026-11-05, preview of server mode)
+
+- **Search:** the folder filter (the **Folder** box, `in:folder`, `--in`) now matches a folder
+  name at any level, or a run of folders anywhere in the path: `Setup` and `Ops/Setup` both find
+  `alice-notes/Ops/Setup/portainer.md`. Before, only a prefix from the root matched, which on a
+  server meant starting with the root's name. No reindex needed.
+
 ## 0.4.0rc16 (2026-11-05, preview of server mode)
 
 - **Agent:** a note saved several times in a row no longer disappears from the server. The agent
