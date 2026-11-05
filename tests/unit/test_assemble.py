@@ -6,6 +6,7 @@ offline; the budget arithmetic below uses the counter's ``ceil(words * 1.3)``.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 
 import pytest
@@ -308,6 +309,8 @@ def test_headers_and_citations_follow_first_appearance(
         doc_date=datetime(2025, 12, 31, tzinfo=UTC),
     )
     plain = _hit(3, document_id=3, title=None, text="texto sem titulo nem data", doc_date=None)
+    top = replace(top, rerank_score=0.844)
+    archived = replace(archived, rerank_score=0.002)
 
     bundle = assemble_context(_result(top, archived, plain))
     headers = [line for line in bundle.text.splitlines() if line.startswith("[")]
@@ -322,6 +325,8 @@ def test_headers_and_citations_follow_first_appearance(
     assert bundle.citations[0].document_id == 1
     assert bundle.citations[0].path == "notes/doc1.md"
     assert bundle.citations[1].page is None and bundle.citations[1].slide == 4
+    # the reranker's relevance travels with the citation, in percent; None without a reranker
+    assert [citation.match for citation in bundle.citations] == [84, 0, None]
 
 
 def test_budget_drops_lowest_ranked_snippets_and_keeps_the_top_hit(

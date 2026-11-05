@@ -839,6 +839,21 @@ fieldset.tag-filter {
   padding-right: 5.5rem;
 }
 
+/* The same relevance on a chat or history citation, inline after the date */
+.cite-match {
+  display: inline-block;
+  margin-left: var(--sp-1);
+  padding: 0 0.45em;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--fg-muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  vertical-align: middle;
+}
+
 /* Search: results far below the best rerank score, collapsed (routes.split_weak_hits) */
 .weak-hits {
   margin-top: var(--sp-3);

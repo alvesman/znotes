@@ -111,6 +111,7 @@ def test_ask_returns_the_answer_schema(monkeypatch: pytest.MonkeyPatch) -> None:
         "is_current": True,
         "document_id": 3,
         "format": None,
+        "match": None,
     }
     assert seen["question"] == "qual e a ideia?"
     assert seen["filters"] is not None and seen["filters"].include_superseded is True

@@ -40,6 +40,7 @@ def test_system_prompt_has_citation_and_historical_rules() -> None:
 def test_system_prompt_has_the_list_and_identifier_rule() -> None:
     assert "every item the source lists for what is asked" in SYSTEM_PROMPT
     assert "Copy identifiers in full" in SYSTEM_PROMPT
+    assert "each command in its own fenced code block" in SYSTEM_PROMPT
 
 
 def test_table_rule_only_when_context_has_table() -> None:

@@ -23,6 +23,7 @@ from mynotes.config import get_settings
 from mynotes.core import service
 from mynotes.core.errors import Ambiguous, NotFound
 from mynotes.core.principal import Principal
+from mynotes.retrieval.assemble import match_percent
 from mynotes.retrieval.types import SearchHit
 from mynotes.web.render import heading_slug, render_document_markdown, render_help_markdown
 
@@ -263,18 +264,6 @@ def _hit_item(hit: SearchHit) -> dict[str, Any]:
         "tags": list(hit.tags),
         "match": match_percent(hit.rerank_score),
     }
-
-
-def match_percent(rerank_score: float | None) -> int | None:
-    """The reranker's relevance as a whole percentage, or None without a reranker.
-
-    Rerankers answer a probability-like score in [0, 1]; anything outside is
-    clamped, so a model that scores on another scale still shows something
-    sensible instead of a negative or a thousand percent.
-    """
-    if rerank_score is None:
-        return None
-    return round(100 * min(1.0, max(0.0, rerank_score)))
 
 
 @router.get("/chat")

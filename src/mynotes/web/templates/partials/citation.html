@@ -12,6 +12,7 @@
   {%- endif %}
   {%- if item.doc_date %}<span class="cite-date"> — {{ item.doc_date }}</span>{% endif %}
   {%- if not item.is_current %} <span class="badge">historical</span>{% endif %}
+  {%- if item.n and item.match is defined and item.match is not none %} <span class="cite-match" title="How closely the cited passage matches the question, as judged by the reranker">{{ item.match }}% match</span>{% endif %}
   <span class="cite-actions">
     {%- if item.format == "pdf" %}
     <a href="/v1/files/{{ item.document_id }}/raw{% if item.page %}#page={{ item.page }}{% endif %}"

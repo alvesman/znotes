@@ -271,6 +271,7 @@ def test_citation_to_dict_serializes_all_fields() -> None:
         "is_current",
         "document_id",
         "format",
+        "match",
     ]
     assert data == {
         "n": 2,
@@ -283,4 +284,5 @@ def test_citation_to_dict_serializes_all_fields() -> None:
         "is_current": True,
         "document_id": 2,
         "format": None,
+        "match": None,
     }

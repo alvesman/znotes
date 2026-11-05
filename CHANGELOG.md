@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0rc19 (2026-11-05, preview of server mode)
+
+- **Chat:** each citation under an answer shows the same match percentage as search results,
+  live and in History. The answer instructions now ask for Markdown: a procedure as a numbered
+  list with each command in its own code block, several values as a list or table, a short
+  factual answer as plain sentences.
+
 ## 0.4.0rc18 (2026-11-05, preview of server mode)
 
 - **Search:** each result shows how closely it matches the query, as a percentage from the

@@ -105,6 +105,11 @@
     if (!citation.is_current) {
       node.appendChild(el("span", "badge", "historical"));
     }
+    if (typeof citation.match === "number") {
+      var match = el("span", "cite-match", citation.match + "% match");
+      match.title = "How closely the cited passage matches the question, as judged by the reranker";
+      node.appendChild(match);
+    }
     node.appendChild(citationActions(citation));
     return node;
   }

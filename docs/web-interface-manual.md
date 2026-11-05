@@ -131,6 +131,7 @@ Each question you ask appears as a block with three parts:
    - the page (`p. 4`) for PDFs, or the slide (`slide 7`) for presentations;
    - the document's date, when known;
    - a **historical** label when the source is an older, replaced version;
+   - a **match** percentage, with the reranker on: how closely the cited passage matches the question (see [Search](#5-search-finding-passages) for what a low number means);
    - links to open the document (see the next table).
 
 What the links do depends on the type of file:

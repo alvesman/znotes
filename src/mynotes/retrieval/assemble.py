@@ -67,6 +67,8 @@ class Citation:
         is_current: Whether the document is ``current`` and its latest version.
         format: The document format (``md``, ``pdf``, ...), or None when the
             hit carried none.
+        match: The reranker's relevance of the cited passage as a whole
+            percentage (0..100), or None without a reranker.
     """
 
     n: int
@@ -79,6 +81,19 @@ class Citation:
     doc_date: datetime | None
     is_current: bool
     format: str | None = None
+    match: int | None = None
+
+
+def match_percent(rerank_score: float | None) -> int | None:
+    """The reranker's relevance as a whole percentage, or None without a reranker.
+
+    Rerankers answer a probability-like score in [0, 1]; anything outside is
+    clamped, so a model that scores on another scale still shows something
+    sensible instead of a negative or a thousand percent.
+    """
+    if rerank_score is None:
+        return None
+    return round(100 * min(1.0, max(0.0, rerank_score)))
 
 
 @dataclass
@@ -514,6 +529,7 @@ def _citation(group: _Group, n: int) -> Citation:
         doc_date=group.hit.doc_date,
         is_current=group.hit.doc_status == "current" and group.hit.is_latest,
         format=group.hit.format,
+        match=match_percent(group.hit.rerank_score),
     )
 
 

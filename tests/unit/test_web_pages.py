@@ -408,8 +408,10 @@ def test_history_page_groups_a_chat_into_one_conversation(
         "mynotes.core.chat_history.list_conversations",
         lambda principal: ([Conversation(key="abc", turns=[first, second])], 1),
     )
+    second.citations[0]["match"] = 84  # stored by rc19+; older entries have no match
     html = _client().get("/ui/history").text
     assert html.count('class="history-entry"') == 1 and html.count('class="history-turn"') == 2
+    assert html.count("% match") == 1 and ">84% match<" in html
     assert "2 questions" in html and "and the port?" in html
     assert 'data-cite-prefix="h8-cite-"' in html and 'id="h8-cite-1"' in html
     assert 'href="/ui/history" aria-current="page"' in html

@@ -64,6 +64,8 @@ class CitationModel(BaseModel):
     is_current: bool
     document_id: int
     format: str | None = None
+    match: int | None = None
+    """The reranker's relevance of the cited passage in percent, or None without a reranker."""
 
 
 class AskResponse(BaseModel):

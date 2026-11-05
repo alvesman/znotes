@@ -94,7 +94,8 @@ def citation_to_dict(citation: Citation) -> dict[str, Any]:
     Returns:
         A dict with ``n``, ``title``, ``path``, ``page``, ``slide``,
         ``section``, ``doc_date`` (ISO 8601 or None), ``is_current``,
-        ``document_id`` and ``format``.
+        ``document_id``, ``format`` and ``match`` (the reranker's relevance
+        in percent, or None).
     """
     return {
         "n": citation.n,
@@ -107,6 +108,7 @@ def citation_to_dict(citation: Citation) -> dict[str, Any]:
         "is_current": citation.is_current,
         "document_id": citation.document_id,
         "format": citation.format,
+        "match": citation.match,
     }
 
 

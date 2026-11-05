@@ -36,7 +36,10 @@ _BASE_RULES: tuple[str, ...] = (
     "7. Cite the sources you use with their bracket numbers from the context headers, e.g. "
     "`[1]` or `[2][3]`, placed right after the sentence they support. Don't mention file names "
     "or page numbers in the text.",
-    "8. Complete sentences; no cut-off endings.",
+    "8. Complete sentences; no cut-off endings. Write Markdown: a procedure as a numbered list "
+    "with one step per item and each command in its own fenced code block (```), several "
+    "values or settings as a short list or table, and a short factual answer as plain "
+    "sentences.",
 )
 
 SYSTEM_PROMPT = _PROMPT_INTRO + "\n" + "\n".join(_BASE_RULES)
