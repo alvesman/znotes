@@ -18,8 +18,11 @@ For one document D, :func:`detect_for_document` combines three signals into
 
 Relations are upserted without ever overwriting a ``confirmed`` or
 ``rejected`` decision (user decisions win) and are never downgraded from
-``auto`` to ``proposed``. The effects of active relations (status changes,
-reindex, KG evidence) live in :mod:`mynotes.versioning.chains`.
+``auto`` to ``proposed``. With the "always accept the newer version" switch
+on (:func:`mynotes.versioning.review.auto_accept_enabled`), a pair that would
+only be proposed is written as ``auto`` instead. The effects of active
+relations (status changes, reindex, KG evidence) live in
+:mod:`mynotes.versioning.chains`.
 """
 
 from __future__ import annotations
@@ -52,6 +55,7 @@ from mynotes.jobs.registry import Priority
 from mynotes.platform.paths import normalize_path_key
 from mynotes.scan.hashing import hash_text
 from mynotes.text.normalize import normalize_key
+from mynotes.versioning.review import auto_accept_enabled
 from mynotes.versioning.similarity import cosine, jaccard, mean_embedding, pair_score
 from mynotes.versioning.stems import parse_stem
 
@@ -136,13 +140,19 @@ def pick_newer(
     return None, "ambiguous"
 
 
-def decide(c: Candidate, settings: Settings) -> Literal["auto", "proposed", "none"]:
+def decide(
+    c: Candidate, settings: Settings, *, accept_proposed: bool = False
+) -> Literal["auto", "proposed", "none"]:
     """Map a candidate's score to a relation decision.
 
     Args:
         c: The scored candidate.
         settings: Application settings (``versions.auto_threshold``,
             ``versions.propose_threshold``).
+        accept_proposed: The "always accept the newer version" switch: a
+            pair that would be ``proposed`` is ``auto`` instead (including
+            pairs whose order is ambiguous, where the detector's best guess
+            at the newer side is taken).
 
     Returns:
         ``auto`` when the score reaches the auto threshold with an
@@ -152,7 +162,7 @@ def decide(c: Candidate, settings: Settings) -> Literal["auto", "proposed", "non
     if c.order_reason != "ambiguous" and c.score >= settings.versions.auto_threshold:
         return "auto"
     if c.score >= settings.versions.propose_threshold:
-        return "proposed"
+        return "auto" if accept_proposed else "proposed"
     return "none"
 
 
@@ -294,8 +304,9 @@ def detect_for_document(session: Session, document_id: int, settings: Settings) 
     candidates = sorted(
         find_candidates(session, document_id, settings), key=lambda c: (c.newer_id, c.older_id)
     )
+    accept_proposed = auto_accept_enabled(session) if candidates else False
     for candidate in candidates:
-        verdict = decide(candidate, settings)
+        verdict = decide(candidate, settings, accept_proposed=accept_proposed)
         if verdict == "none":
             continue
         relation_id = _upsert_supersedes(

@@ -69,7 +69,25 @@ FastAPI app as the JSON API (`mynotes serve`):
   only for admins (`is_admin`, set by `_render` from the request's principal); others
   see a note instead. The tab partials re-render on the
   `mynotes:versions-changed` / `mynotes:tags-changed` events that those API
-  responses carry as `HX-Trigger` headers.
+  responses carry as `HX-Trigger` headers. The versions tab (admins) also has
+  per-row checkboxes with `Select all` (`data-select-all`, wired in `ui.js`)
+  and `Confirm selected` / `Reject selected`, a form posting
+  `action` + `relation_id[]` to `POST /ui/reviews/versions/bulk`
+  (`service.version_bulk_action`, still-proposed rows only), and the
+  `Always accept the newer version` checkbox, a form posting to
+  `POST /ui/reviews/versions/auto-accept` (`service.set_auto_accept_versions`:
+  the `versions.auto_accept` row of `app_state`; turning it on confirms the
+  waiting proposals, and the detector then writes `auto` where it would have
+  written `proposed`). Both answer 204 with the `mynotes:versions-changed`
+  trigger, so the tab re-renders itself.
+- Review badge: the menu's **Reviews** entry holds `#reviews-badge`, which
+  loads `GET /ui/partials/reviews/badge` (`service.review_counts`: proposed
+  relations, proposed LLM tags, entity merge candidates, ACL-filtered) on page
+  load and again on `mynotes:versions-changed`, `mynotes:tags-changed` and
+  `mynotes:entities-changed` (the entity merge/distinct responses carry the
+  last one). It is hidden at zero. On the Reviews page the request carries
+  `?tabs=1` and the response also swaps the three tab counts out of band
+  (`hx-swap-oob`), so they follow every decision.
 - Graph explorer: `/ui/graph?entity=REF` — entity search box (HTMX lookup;
   `REF` is a name, or `#<id>`; `graph/store.find_entities` resolves merged
   records to the live entity, and ambiguity candidates link by id since two

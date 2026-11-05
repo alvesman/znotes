@@ -49,7 +49,18 @@ from mynotes.retrieval import version_expand
 from mynotes.retrieval.assemble import assemble_context
 from mynotes.retrieval.pipeline import retrieve
 from mynotes.scan.scanner import scan_root
-from mynotes.versioning.review import add_manual, confirm, list_relations, reject, swap
+from mynotes.versioning.review import (
+    add_manual,
+    auto_accept_enabled,
+    bulk,
+    confirm,
+    count_relations,
+    list_relations,
+    proposed_relation_ids,
+    reject,
+    set_auto_accept,
+    swap,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -328,6 +339,51 @@ def test_list_reject_and_confirm_round_trip(review_env: ReviewEnv) -> None:
     assert document_row(env, old_doc).status == "superseded"
     assert document_row(env, old_doc).superseded_by_document_id == new_doc
     assert indexed_doc_statuses(env, old_doc) == {"superseded"}
+
+
+def test_bulk_and_always_accept_clear_the_queue(review_env: ReviewEnv) -> None:
+    """bulk() decides several proposals at once; set_auto_accept(True) confirms what waits."""
+    env = review_env
+    old_doc, new_doc = ingest_pair(env)
+    relation_id = auto_relation_id(env)
+    with session_scope() as session:  # pretend the detector only proposed the pair
+        session.execute(
+            update(DocRelation).where(DocRelation.id == relation_id).values(status="proposed")
+        )
+        reject(session, relation_id)
+        session.execute(
+            update(DocRelation).where(DocRelation.id == relation_id).values(status="proposed")
+        )
+    drain("reindex_metadata")
+    assert document_row(env, old_doc).status == "current"
+    with session_scope() as session:
+        assert count_relations(session, ["proposed"]) == 1
+        assert proposed_relation_ids(session) == [relation_id]
+        assert auto_accept_enabled(session) is False
+
+    with session_scope() as session:  # unknown ids and repeated ids are harmless
+        assert bulk(session, [relation_id, relation_id, 999_999], "reject") == 1
+        assert count_relations(session, ["proposed"]) == 0
+        assert bulk(session, [relation_id], "confirm") == 0  # no longer proposed: skipped
+    drain("reindex_metadata")
+    assert document_row(env, old_doc).status == "current"
+
+    with session_scope() as session:
+        session.execute(
+            update(DocRelation).where(DocRelation.id == relation_id).values(status="proposed")
+        )
+    with session_scope() as session:
+        assert set_auto_accept(session, True) == 1
+        assert auto_accept_enabled(session) is True
+        assert count_relations(session, ["confirmed"]) == 1
+    drain("reindex_metadata")
+    sync_once()
+    assert document_row(env, old_doc).status == "superseded"
+    assert document_row(env, old_doc).superseded_by_document_id == new_doc
+    assert indexed_doc_statuses(env, old_doc) == {"superseded"}
+    with session_scope() as session:
+        assert set_auto_accept(session, False) == 0
+        assert auto_accept_enabled(session) is False
 
 
 def test_swap_reverses_the_direction_and_confirms(review_env: ReviewEnv) -> None:

@@ -92,7 +92,18 @@ from mynotes.tags.store import (
 from mynotes.tags.store import merge_tags as merge_tag_names
 from mynotes.versioning.history import VersionInfo
 from mynotes.versioning.history import document_history as document_version_history
-from mynotes.versioning.review import RelationView, confirm, list_relations, reject, swap
+from mynotes.versioning.review import (
+    BulkAction,
+    RelationView,
+    auto_accept_enabled,
+    bulk,
+    confirm,
+    count_relations,
+    list_relations,
+    reject,
+    set_auto_accept,
+    swap,
+)
 from mynotes.versioning.review import document_preview as document_preview_text
 
 logger = logging.getLogger(__name__)
@@ -1026,6 +1037,95 @@ def version_action(
             function(session, relation_id)
     except ValueError as exc:
         raise NotFound(str(exc)) from exc
+
+
+def version_bulk_action(
+    relation_ids: Sequence[int], action: BulkAction, *, principal: Principal = LOCAL
+) -> int:
+    """Confirm or reject several proposed relations at once (admin only).
+
+    Relations that are no longer ``proposed`` are skipped.
+
+    Args:
+        relation_ids: The relations to act on.
+        action: ``confirm`` or ``reject``.
+        principal: The caller; must be an admin in team mode.
+
+    Returns:
+        How many relations changed.
+
+    Raises:
+        NotFound: For an unknown action.
+        Forbidden: When the caller is not an admin.
+    """
+    _require_admin(principal)
+    try:
+        with session_scope() as session:
+            return bulk(session, relation_ids, action)
+    except ValueError as exc:
+        raise NotFound(str(exc)) from exc
+
+
+def auto_accept_versions() -> bool:
+    """Whether proposed version links are accepted without review (the Reviews switch)."""
+    with session_scope() as session:
+        return auto_accept_enabled(session)
+
+
+def set_auto_accept_versions(enabled: bool, *, principal: Principal = LOCAL) -> int:
+    """Switch "always accept the newer version" on or off (admin only).
+
+    On, the detector writes what it would have proposed as an accepted
+    relation, and every relation waiting in the queue is confirmed now.
+
+    Args:
+        enabled: The new value.
+        principal: The caller; must be an admin in team mode.
+
+    Returns:
+        How many waiting proposals were confirmed.
+
+    Raises:
+        Forbidden: When the caller is not an admin.
+    """
+    _require_admin(principal)
+    with session_scope() as session:
+        return set_auto_accept(session, enabled)
+
+
+@dataclass(frozen=True)
+class ReviewCounts:
+    """How many items wait in each review queue, as one caller sees them.
+
+    Attributes:
+        versions: Proposed version relations.
+        tags: Proposed LLM tags (the suggestions, not the documents).
+        entities: Entity merge candidates (at most the queue's page size).
+    """
+
+    versions: int
+    tags: int
+    entities: int
+
+    @property
+    def total(self) -> int:
+        return self.versions + self.tags + self.entities
+
+
+def review_counts(*, principal: Principal = LOCAL) -> ReviewCounts:
+    """The sizes of the three review queues, for the menu badge and the tab labels.
+
+    Args:
+        principal: The caller; restricted callers count only what they may see.
+    """
+    if principal.acl_prefixes is None or "" in principal.acl_prefixes:
+        with session_scope() as session:
+            versions = count_relations(session, ["proposed"])
+    else:
+        versions = len(list_version_relations("proposed", principal=principal))
+    tags = sum(len(entry.proposals) for entry in tag_proposals(principal=principal))
+    entities = len(entity_merge_candidates(principal=principal))
+    return ReviewCounts(versions=versions, tags=tags, entities=entities)
 
 
 def filter_graph_by_acl(

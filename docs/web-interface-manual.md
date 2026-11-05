@@ -308,6 +308,8 @@ mynotes makes three kinds of guesses by itself. Clear cases are applied automati
 
 Click **Reviews** in the menu bar, then choose a tab: **Versions** (shown first), **Tags** or **Entities**. Each list refreshes after every decision; the item you decided on disappears. On a shared server only the administrator decides on versions and entities and merges tags; everyone can accept or reject the suggested tags of their own documents.
 
+When something is waiting for you, the **Reviews** entry in the menu bar shows a small number: how many items wait in the three queues together (only the ones you may see). On the Reviews page each tab shows its own count. The numbers disappear when the queues are empty.
+
 ### Versions tab
 
 Pairs of documents where mynotes thinks one replaces the other (for example `plan-v2.md` and `plan.md`). For each pair you see:
@@ -324,6 +326,10 @@ Choose one:
 | **Swap** | Yes, but the other way round | The direction is reversed, then confirmed |
 
 *No proposed version relations.* means there is nothing to review.
+
+**Many pairs at once.** After a large import, or when an agent re-sends many edited notes, the queue can hold dozens of pairs. Tick the box in the top-right corner of each pair you want to decide (or **Select all**), then press **Confirm selected** or **Reject selected** above the list. The list shows up to 50 pairs at a time; when more wait, the next ones appear after you decide these.
+
+**Always accept the newer version.** Tick this box above the list (administrator only) and mynotes stops asking: from then on every pair it would have proposed is confirmed at once, so the older document becomes *superseded* without a visit to this page. Turning it on also confirms every pair waiting in the queue at that moment. Use it when your notes come from a single folder where a re-sent file is always the newer one; leave it off when you keep several documents with similar names and content that are not versions of each other. Pairs whose order mynotes could not tell (`order_reason: ambiguous`) are accepted too, in the direction shown, so check the **Versions** section of a document page if an answer cites the wrong one and use **Swap** or `uv run mynotes versions` to correct it. Untick the box to go back to reviewing; pairs confirmed meanwhile stay confirmed.
 
 ### Tags tab
 
@@ -507,7 +513,8 @@ How many files in your folders mynotes can't read (unsupported formats, such as 
 | Limit to a folder | Search: **Folder**; or write `in:folder` |
 | Open a cited document | The links on its source line: **Open**, **View note**, **Download**, **Open in app** |
 | Accept or reject a suggested tag | The document page's tags, or **Reviews → Tags** |
-| Confirm that a document replaces another | **Reviews → Versions** → **Confirm** |
+| Confirm that a document replaces another | **Reviews → Versions** → **Confirm** (or tick several pairs and **Confirm selected**) |
+| Stop reviewing version links | **Reviews → Versions** → **Always accept the newer version** |
 | Merge duplicate entities | **Reviews → Entities** → **Merge (keep the older)** |
 | See how things connect | **Graph** → search a name → click circles and lines |
 | Check that mynotes is up to date | **Status** |

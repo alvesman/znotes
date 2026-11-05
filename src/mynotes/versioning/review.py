@@ -15,15 +15,22 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Literal
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
-from mynotes.db.models import Chunk, DocRelation, Document, DocumentVersion, File
+from mynotes.db.models import AppState, Chunk, DocRelation, Document, DocumentVersion, File
 from mynotes.text.normalize import normalize_path_key
 from mynotes.versioning.chains import apply_supersedes_effects, revert_supersedes_effects
 
 _ACTIVE_STATUSES = ("auto", "confirmed")
+
+AUTO_ACCEPT_KEY = "versions.auto_accept"
+"""``app_state`` key of the "always accept the newer version" switch (a bool)."""
+
+BulkAction = Literal["confirm", "reject"]
 
 
 @dataclass
@@ -102,6 +109,88 @@ def list_relations(
             )
         )
     return views
+
+
+def count_relations(session: Session, status: Sequence[str] | None = None) -> int:
+    """How many supersedes relations have one of these statuses (None: all)."""
+    statement = (
+        select(func.count()).select_from(DocRelation).where(DocRelation.type == "supersedes")
+    )
+    if status:
+        statement = statement.where(DocRelation.status.in_(list(status)))
+    return int(session.execute(statement).scalar_one())
+
+
+def proposed_relation_ids(session: Session) -> list[int]:
+    """The ids of every ``proposed`` supersedes relation, oldest first (no limit)."""
+    statement = (
+        select(DocRelation.id)
+        .where(DocRelation.type == "supersedes", DocRelation.status == "proposed")
+        .order_by(DocRelation.id)
+    )
+    return [int(value) for value in session.execute(statement).scalars()]
+
+
+def bulk(session: Session, relation_ids: Sequence[int], action: BulkAction) -> int:
+    """Confirm or reject several relations at once; still-proposed ones only.
+
+    A relation that was decided in the meantime (or does not exist) is
+    skipped, so two people acting on the same queue cannot undo each other.
+
+    Args:
+        session: An open session/transaction.
+        relation_ids: The relations to act on.
+        action: ``confirm`` or ``reject``.
+
+    Returns:
+        How many relations changed.
+
+    Raises:
+        ValueError: For an unknown action.
+    """
+    function = {"confirm": confirm, "reject": reject}.get(action)
+    if function is None:
+        raise ValueError(f"unknown bulk action {action!r}")
+    done = 0
+    for relation_id in dict.fromkeys(int(value) for value in relation_ids):
+        relation = session.get(DocRelation, relation_id)
+        if relation is None or relation.type != "supersedes" or relation.status != "proposed":
+            continue
+        function(session, relation_id)
+        done += 1
+    return done
+
+
+def auto_accept_enabled(session: Session) -> bool:
+    """Whether proposals are accepted without review (the Reviews page switch)."""
+    row = session.get(AppState, AUTO_ACCEPT_KEY)
+    return bool(row.value) if row is not None else False
+
+
+def set_auto_accept(session: Session, enabled: bool) -> int:
+    """Store the "always accept the newer version" switch.
+
+    Turning it on also confirms every relation waiting in the queue, so the
+    switch means what it says from that moment on.
+
+    Args:
+        session: An open session/transaction.
+        enabled: The new value.
+
+    Returns:
+        How many waiting proposals were confirmed (0 when turning it off).
+    """
+    now = datetime.now(UTC)
+    session.execute(
+        pg_insert(AppState)
+        .values(key=AUTO_ACCEPT_KEY, value=bool(enabled), updated_at=now)
+        .on_conflict_do_update(
+            index_elements=["key"], set_={"value": bool(enabled), "updated_at": now}
+        )
+    )
+    if not enabled:
+        return 0
+    return bulk(session, proposed_relation_ids(session), "confirm")
 
 
 def confirm(session: Session, relation_id: int) -> None:

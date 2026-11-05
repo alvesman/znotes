@@ -7,9 +7,9 @@
 {% block content %}
 <h1>Review queues</h1>
 <div class="tabs" role="tablist" aria-label="Review queues">
-  <button type="button" role="tab" aria-selected="true" aria-controls="review-panel" hx-get="/ui/partials/reviews/versions" hx-target="#review-panel">Versions</button>
-  <button type="button" role="tab" aria-selected="false" aria-controls="review-panel" hx-get="/ui/partials/reviews/tags" hx-target="#review-panel">Tags</button>
-  <button type="button" role="tab" aria-selected="false" aria-controls="review-panel" hx-get="/ui/partials/reviews/entities" hx-target="#review-panel">Entities</button>
+  <button type="button" role="tab" aria-selected="true" aria-controls="review-panel" hx-get="/ui/partials/reviews/versions" hx-target="#review-panel">Versions <span id="review-count-versions" class="tab-count"></span></button>
+  <button type="button" role="tab" aria-selected="false" aria-controls="review-panel" hx-get="/ui/partials/reviews/tags" hx-target="#review-panel">Tags <span id="review-count-tags" class="tab-count"></span></button>
+  <button type="button" role="tab" aria-selected="false" aria-controls="review-panel" hx-get="/ui/partials/reviews/entities" hx-target="#review-panel">Entities <span id="review-count-entities" class="tab-count"></span></button>
 </div>
 <div id="review-panel" role="tabpanel">
   {% include "partials/review_versions.html" %}

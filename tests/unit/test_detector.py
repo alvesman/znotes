@@ -115,20 +115,27 @@ class TestDecide:
         assert decide_score(0.54, "mtime") == "none"
         assert decide_score(0.0, "mtime") == "none"
 
+    def test_always_accept_turns_proposals_into_auto(self) -> None:
+        """The Reviews switch: what would be proposed is accepted; below threshold stays none."""
+        assert decide_score(0.55, "mtime", accept_proposed=True) == "auto"
+        assert decide_score(0.95, "ambiguous", accept_proposed=True) == "auto"
+        assert decide_score(0.54, "mtime", accept_proposed=True) == "none"
 
-def decide_score(score: float, order_reason: str) -> str:
+
+def decide_score(score: float, order_reason: str, *, accept_proposed: bool = False) -> str:
     """Decide over a synthetic candidate with the default thresholds."""
     settings = Settings()
     settings.versions.auto_threshold = 0.80
     settings.versions.propose_threshold = 0.55
-    return decide_of(candidate(score=score, order_reason=order_reason), settings)
+    candidate_ = candidate(score=score, order_reason=order_reason)
+    return decide_of(candidate_, settings, accept_proposed=accept_proposed)
 
 
-def decide_of(c: Candidate, settings: Settings) -> str:
+def decide_of(c: Candidate, settings: Settings, *, accept_proposed: bool = False) -> str:
     """Import indirection so the test module reads top-down."""
     from mynotes.versioning.detector import decide
 
-    return decide(c, settings)
+    return decide(c, settings, accept_proposed=accept_proposed)
 
 
 class TestArchiveFolderHelpers:

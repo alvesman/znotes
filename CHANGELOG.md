@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0rc15 (2026-11-05, preview of server mode)
+
+- **Reviews:** the **Reviews** entry in the menu bar shows how many items wait in the three queues
+  (only the ones you may see) and each tab on the Reviews page shows its own count; both follow
+  every decision and disappear at zero. On the **Versions** tab each pair has a checkbox, with
+  **Select all**, **Confirm selected** and **Reject selected** above the list for the days an
+  import or an agent brings dozens of pairs at once. A new **Always accept the newer version**
+  box (administrator only) confirms every waiting pair and, from then on, every pair mynotes
+  would have proposed, so the older document becomes *superseded* without a visit to the page.
+  Untick it to review again.
+
 ## 0.4.0rc14 (2026-10-29, preview of server mode)
 
 - **Agent image:** `ghcr.io/alvesman/znotes:<version>-agent` holds only what `mynotes agent`

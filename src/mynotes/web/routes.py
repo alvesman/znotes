@@ -51,6 +51,12 @@ _MAX_TAGS = 500
 _COOKIE_MAX_AGE_S = 30 * 24 * 3600
 _SNIPPET_CHARS = 300
 
+_HX_VERSIONS_CHANGED = {"HX-Trigger": "mynotes:versions-changed"}
+"""Response header after a version decision: the Versions tab and the menu badge refresh."""
+
+_HX_ENTITIES_CHANGED = {"HX-Trigger": "mynotes:entities-changed"}
+"""Response header after an entity decision: the menu badge refreshes."""
+
 _UI_CSP = (
     "default-src 'self'; img-src 'self' data:; style-src 'self'; "
     "script-src 'self'; frame-ancestors 'none'"
@@ -121,6 +127,7 @@ def _render(
     """Render one UI template with the UI security headers."""
     context.setdefault("signed_in_user", _signed_in_user(request))
     context.setdefault("is_admin", _is_admin(request))
+    context.setdefault("has_principal", _has_principal(request))
     return templates.TemplateResponse(
         request,
         name,
@@ -136,6 +143,13 @@ def _is_admin(request: Request) -> bool:
     if principal is None:  # the sign-in page: nobody yet, unless in local mode
         return get_settings().auth.mode == "none"
     return bool(principal.is_admin)
+
+
+def _has_principal(request: Request) -> bool:
+    """Whether the menu may ask for the review badge: someone is signed in (or local mode)."""
+    if getattr(request.state, "principal", None) is not None:
+        return True
+    return get_settings().auth.mode == "none"
 
 
 def _signed_in_user(request: Request) -> str | None:
@@ -512,7 +526,7 @@ def _render_review_versions(request: Request, principal: Principal) -> Response:
     return _render(
         request,
         "partials/review_versions.html",
-        {"rows": _review_version_rows(principal)},
+        {"rows": _review_version_rows(principal), "auto_accept": service.auto_accept_versions()},
     )
 
 
@@ -544,8 +558,45 @@ def reviews_page(request: Request, principal: PrincipalDep) -> Response:
         "nav": "reviews",
         "can_open_files": principal.can_open_files,
         "rows": _review_version_rows(principal),
+        "auto_accept": service.auto_accept_versions(),
     }
     return _render(request, "reviews.html", context)
+
+
+@router.get("/partials/reviews/badge")
+def partial_review_badge(
+    request: Request, principal: PrincipalDep, tabs: Annotated[bool, Query()] = False
+) -> Response:
+    """The menu badge with the number of items waiting for review.
+
+    With ``tabs=1`` (the Reviews page), the response also carries the three
+    tab counts as out-of-band swaps, so they follow every decision.
+    """
+    context: dict[str, Any] = {"counts": service.review_counts(principal=principal), "tabs": tabs}
+    return _render(request, "partials/review_badge.html", context)
+
+
+@router.post("/reviews/versions/bulk", status_code=204)
+def bulk_version_action(
+    principal: PrincipalDep,
+    action: Annotated[str, Form()],
+    relation_id: Annotated[list[int] | None, Form()] = None,
+) -> Response:
+    """Confirm or reject the selected proposals; the tab and the badge re-render themselves."""
+    if action not in ("confirm", "reject"):
+        raise NotFound(f"unknown bulk action {action!r}")
+    if relation_id:
+        service.version_bulk_action(relation_id, action, principal=principal)  # type: ignore[arg-type]
+    return Response(status_code=204, headers=_HX_VERSIONS_CHANGED)
+
+
+@router.post("/reviews/versions/auto-accept", status_code=204)
+def set_version_auto_accept(
+    principal: PrincipalDep, enabled: Annotated[str | None, Form()] = None
+) -> Response:
+    """The "always accept the newer version" switch (a checkbox: absent means off)."""
+    service.set_auto_accept_versions(enabled is not None, principal=principal)
+    return Response(status_code=204, headers=_HX_VERSIONS_CHANGED)
 
 
 @router.get("/partials/reviews/versions")
@@ -572,7 +623,9 @@ def merge_entity_pair(
 ) -> Response:
     """Merge two candidate entities (the older survives) and re-render the tab."""
     service.merge_entities(keep_id, drop_id, principal=principal)
-    return _render_review_entities(request, principal)
+    response = _render_review_entities(request, principal)
+    response.headers.update(_HX_ENTITIES_CHANGED)
+    return response
 
 
 @router.post("/reviews/entities/{a_id}/{b_id}/distinct")
@@ -581,7 +634,9 @@ def mark_entity_pair_distinct(
 ) -> Response:
     """Record two candidate entities as distinct and re-render the tab."""
     service.mark_entities_distinct(a_id, b_id, principal=principal)
-    return _render_review_entities(request, principal)
+    response = _render_review_entities(request, principal)
+    response.headers.update(_HX_ENTITIES_CHANGED)
+    return response
 
 
 def _entity_panel_context(ref: str, principal: Principal) -> dict[str, Any]:

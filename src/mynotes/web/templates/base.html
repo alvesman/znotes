@@ -22,7 +22,11 @@
         <li><a href="/ui/chat"{% if nav == "chat" %} aria-current="page"{% endif %}>Chat</a></li>
         <li><a href="/ui/search"{% if nav == "search" %} aria-current="page"{% endif %}>Search</a></li>
         <li><a href="/ui/history"{% if nav == "history" %} aria-current="page"{% endif %}>History</a></li>
-        <li><a href="/ui/reviews"{% if nav == "reviews" %} aria-current="page"{% endif %}>Reviews</a></li>
+        <li><a href="/ui/reviews"{% if nav == "reviews" %} aria-current="page"{% endif %}>Reviews{% if has_principal %}
+          <span id="reviews-badge" class="nav-badge" hidden
+                hx-get="/ui/partials/reviews/badge{% if nav == "reviews" %}?tabs=1{% endif %}"
+                hx-trigger="load, mynotes:versions-changed from:body, mynotes:tags-changed from:body, mynotes:entities-changed from:body"
+                hx-swap="outerHTML"></span>{% endif %}</a></li>
         <li><a href="/ui/graph"{% if nav == "graph" %} aria-current="page"{% endif %}>Graph</a></li>
         {%- if is_admin %}
         <li><a href="/ui/status"{% if nav == "status" %} aria-current="page"{% endif %}>Status</a></li>

@@ -1,0 +1,12 @@
+{#- The menu badge: how many items wait in the review queues. It keeps its htmx
+    attributes so it refreshes after every decision; hidden when nothing waits. -#}
+<span id="reviews-badge" class="nav-badge"{% if not counts.total %} hidden{% endif %}
+      hx-get="/ui/partials/reviews/badge{% if tabs %}?tabs=1{% endif %}"
+      hx-trigger="mynotes:versions-changed from:body, mynotes:tags-changed from:body, mynotes:entities-changed from:body"
+      hx-swap="outerHTML"
+      title="{{ counts.total }} waiting for review">{{ counts.total }}<span class="visually-hidden"> waiting for review</span></span>
+{%- if tabs %}
+<span id="review-count-versions" class="tab-count" hx-swap-oob="true">{{ counts.versions or "" }}</span>
+<span id="review-count-tags" class="tab-count" hx-swap-oob="true">{{ counts.tags or "" }}</span>
+<span id="review-count-entities" class="tab-count" hx-swap-oob="true">{{ counts.entities or "" }}</span>
+{%- endif %}

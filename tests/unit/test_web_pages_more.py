@@ -234,6 +234,7 @@ def test_reviews_page_lists_proposed_relation_with_evidence(
         "document_previews",
         lambda ids, **kwargs: {9: "Novo plano" * 40, 5: "Plano antigo" * 40},
     )
+    monkeypatch.setattr(service, "auto_accept_versions", lambda: False)
     response = _client().get("/ui/reviews")
     assert response.status_code == 200, response.text
     assert 'href="/ui/documents/9"' in response.text
@@ -343,11 +344,14 @@ def test_reviews_hide_admin_actions_from_other_users(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(service, "document_previews", lambda ids, **kwargs: {})
     monkeypatch.setattr(service, "tag_proposals", lambda *args, **kwargs: proposals)
     monkeypatch.setattr(service, "entity_merge_candidates", lambda *args, **kwargs: [pair])
+    monkeypatch.setattr(service, "auto_accept_versions", lambda: False)
     client = _client_as(Principal(user="bob", acl_prefixes=["bob"]))
 
     versions = client.get("/ui/reviews").text
     assert "Plano" in versions and "/v1/versions/12/" not in versions
     assert "The administrator confirms or rejects version links." in versions
+    assert "/ui/reviews/versions/bulk" not in versions  # no bulk buttons for non-admins
+    assert "Always accept the newer version" not in versions
     tags = client.get("/ui/partials/reviews/tags").text
     assert "/v1/tags/5/grafos/accept" in tags and "/v1/tags/5/grafos/reject" in tags  # anyone
     assert "/v1/tags/merge" not in tags
@@ -356,7 +360,10 @@ def test_reviews_hide_admin_actions_from_other_users(monkeypatch: pytest.MonkeyP
     assert "The administrator merges entities" in entities
 
     admin = _client_as(Principal(user="root", acl_prefixes=[""], is_admin=True))
-    assert "/v1/versions/12/confirm" in admin.get("/ui/reviews").text
+    admin_versions = admin.get("/ui/reviews").text
+    assert "/v1/versions/12/confirm" in admin_versions
+    assert 'name="relation_id" value="12"' in admin_versions
+    assert "Always accept the newer version" in admin_versions
     assert "/v1/tags/merge" in admin.get("/ui/partials/reviews/tags").text
     assert "/ui/reviews/entities/3/8/merge" in admin.get("/ui/partials/reviews/entities").text
 
@@ -818,6 +825,7 @@ def test_status_panel_id_appears_once(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_reviews_tabs_have_roles(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(service, "list_version_relations", lambda *args, **kwargs: [])
     monkeypatch.setattr(service, "document_previews", lambda ids, **kwargs: {})
+    monkeypatch.setattr(service, "auto_accept_versions", lambda: False)
     response = _client().get("/ui/reviews")
     assert response.status_code == 200, response.text
     html = response.text
@@ -834,3 +842,127 @@ def test_css_uses_tokens_outside_the_token_section() -> None:
     rules = css[css.index("/* 2. Reset and base */") :]
     colours = re.findall(r":\s*[^;{}]*?(#[0-9a-fA-F]{3,8}\b|rgba?\()", rules)
     assert colours == []
+
+
+# --- review badge, bulk actions and the auto-accept switch ---------------------------
+
+
+def _relation(relation_id: int) -> RelationView:
+    doc = DocRef(
+        document_id=9, title="Plano", path="work/plano.md", doc_date=None, status="current"
+    )
+    return RelationView(
+        id=relation_id,
+        status="proposed",
+        confidence=0.7,
+        method="name_content",
+        newer=doc,
+        older=doc,
+        evidence={},
+    )
+
+
+def test_menu_asks_for_the_review_badge_when_signed_in(monkeypatch: pytest.MonkeyPatch) -> None:
+    page = _client_as(Principal(user="bob", acl_prefixes=["bob"])).get("/ui/chat").text
+    assert 'id="reviews-badge"' in page
+    assert 'hx-get="/ui/partials/reviews/badge"' in page
+    assert "mynotes:versions-changed from:body" in page
+    assert "mynotes:entities-changed from:body" in page
+    # The Reviews page also asks for the tab counts (out-of-band swaps).
+    monkeypatch.setattr(service, "list_version_relations", lambda *args, **kwargs: [])
+    monkeypatch.setattr(service, "document_previews", lambda ids, **kwargs: {})
+    monkeypatch.setattr(service, "auto_accept_versions", lambda: False)
+    reviews = _client().get("/ui/reviews").text
+    assert 'hx-get="/ui/partials/reviews/badge?tabs=1"' in reviews
+    assert 'id="review-count-versions" class="tab-count"' in reviews
+
+
+def test_review_badge_counts_and_hides_at_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        service,
+        "review_counts",
+        lambda **kwargs: service.ReviewCounts(versions=2, tags=3, entities=0),
+    )
+    badge = _client().get("/ui/partials/reviews/badge").text
+    assert 'id="reviews-badge"' in badge and ">5<" in badge
+    assert 'class="nav-badge" hidden' not in badge
+    assert "hx-swap-oob" not in badge  # tab counts only for the Reviews page
+    with_tabs = _client().get("/ui/partials/reviews/badge?tabs=1").text
+    assert 'id="review-count-versions" class="tab-count" hx-swap-oob="true">2<' in with_tabs
+    assert 'id="review-count-tags" class="tab-count" hx-swap-oob="true">3<' in with_tabs
+    assert 'id="review-count-entities" class="tab-count" hx-swap-oob="true"><' in with_tabs
+    assert 'hx-get="/ui/partials/reviews/badge?tabs=1"' in with_tabs  # keeps refreshing
+
+    monkeypatch.setattr(
+        service,
+        "review_counts",
+        lambda **kwargs: service.ReviewCounts(versions=0, tags=0, entities=0),
+    )
+    empty = _client().get("/ui/partials/reviews/badge").text
+    assert 'class="nav-badge" hidden' in empty
+
+
+def test_versions_tab_offers_bulk_actions_and_the_switch(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        service, "list_version_relations", lambda *args, **kwargs: [_relation(12), _relation(13)]
+    )
+    monkeypatch.setattr(service, "document_previews", lambda ids, **kwargs: {})
+    monkeypatch.setattr(service, "auto_accept_versions", lambda: True)
+    tab = _client().get("/ui/partials/reviews/versions").text
+    assert 'hx-post="/ui/reviews/versions/bulk"' in tab
+    assert 'data-select-all="relation_id"' in tab
+    assert 'name="action" value="confirm"' in tab and 'name="action" value="reject"' in tab
+    assert 'name="relation_id" value="12"' in tab and 'name="relation_id" value="13"' in tab
+    assert 'hx-post="/ui/reviews/versions/auto-accept"' in tab
+    assert 'name="enabled" value="1" checked' in tab
+
+    monkeypatch.setattr(service, "list_version_relations", lambda *args, **kwargs: [])
+    monkeypatch.setattr(service, "auto_accept_versions", lambda: False)
+    empty = _client().get("/ui/partials/reviews/versions").text
+    assert "Select all" not in empty  # nothing to select
+    assert 'name="enabled" value="1">' in empty  # the switch stays, unchecked
+
+
+def test_bulk_action_calls_facade_and_triggers_refresh(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[list[int], str]] = []
+
+    def bulk(ids: list[int], action: str, **kwargs: object) -> int:
+        calls.append((list(ids), action))
+        return len(ids)
+
+    monkeypatch.setattr(service, "version_bulk_action", bulk)
+    response = _client().post(
+        "/ui/reviews/versions/bulk",
+        data={"action": "confirm", "relation_id": ["12", "13"]},
+    )
+    assert response.status_code == 204
+    assert response.headers["HX-Trigger"] == "mynotes:versions-changed"
+    assert calls == [([12, 13], "confirm")]
+
+    nothing = _client().post("/ui/reviews/versions/bulk", data={"action": "reject"})
+    assert nothing.status_code == 204 and calls == [([12, 13], "confirm")]
+
+    bad = _client().post("/ui/reviews/versions/bulk", data={"action": "swap", "relation_id": "1"})
+    assert bad.status_code == 404
+
+
+def test_auto_accept_switch_posts_its_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[bool] = []
+    monkeypatch.setattr(
+        service, "set_auto_accept_versions", lambda enabled, **kwargs: seen.append(enabled)
+    )
+    on = _client().post("/ui/reviews/versions/auto-accept", data={"enabled": "1"})
+    off = _client().post("/ui/reviews/versions/auto-accept", data={})
+    assert on.status_code == 204 and off.status_code == 204
+    assert on.headers["HX-Trigger"] == "mynotes:versions-changed"
+    assert seen == [True, False]
+
+
+def test_entity_decisions_refresh_the_badge(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(service, "merge_entities", lambda *args, **kwargs: None)
+    monkeypatch.setattr(service, "mark_entities_distinct", lambda *args, **kwargs: None)
+    monkeypatch.setattr(service, "entity_merge_candidates", lambda *args, **kwargs: [])
+    merged = _client().post("/ui/reviews/entities/3/8/merge")
+    distinct = _client().post("/ui/reviews/entities/8/3/distinct")
+    assert merged.headers["HX-Trigger"] == "mynotes:entities-changed"
+    assert distinct.headers["HX-Trigger"] == "mynotes:entities-changed"

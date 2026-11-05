@@ -1168,11 +1168,84 @@ fieldset.tag-filter {
 }
 
 .review-row {
+  position: relative;
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   padding: var(--sp-3) var(--sp-4);
   margin: var(--sp-3) 0;
+}
+
+/* Bulk review (Versions tab): the row's selection box sits in its top-right corner and the
+   toolbar holds Select all, the bulk buttons and the "always accept" switch. */
+.review-select {
+  position: absolute;
+  top: var(--sp-3);
+  right: var(--sp-3);
+  display: inline-flex;
+  align-items: center;
+}
+
+.review-row:has(.review-select) .review-docs {
+  padding-right: var(--sp-5);
+}
+
+.review-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  margin: var(--sp-3) 0;
+}
+
+.review-auto {
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-raised);
+}
+
+.review-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  cursor: pointer;
+}
+
+/* Counts: the menu badge (any page) and the tab labels on Reviews; both vanish at zero. */
+.nav-badge {
+  display: inline-block;
+  min-width: 1.4em;
+  margin-left: var(--sp-1);
+  padding: 0 0.4em;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+}
+
+.nav-badge[hidden] {
+  display: none;
+}
+
+.tab-count {
+  display: inline-block;
+  min-width: 1.4em;
+  padding: 0 0.4em;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+}
+
+.tab-count:empty {
+  display: none;
 }
 
 .review-docs {

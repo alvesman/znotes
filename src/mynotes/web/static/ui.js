@@ -1,5 +1,5 @@
 /* Shell behaviour shared by every page (loaded deferred from base.html): the theme switch, the
-   phone menu, the panels that collapse on phones and the tab state on Reviews. theme.js has already applied the remembered theme; this file only wires
+   phone menu, the panels that collapse on phones, the tab state and Select all on Reviews. theme.js has already applied the remembered theme; this file only wires
    the buttons. Everything works without it: the menu links are visible when <html> lacks
    the "js" class that theme.js adds. */
 (function () {
@@ -104,11 +104,34 @@
     });
   }
 
+  // Select all (Reviews, Versions tab): a box marked data-select-all="NAME" drives every
+  // checkbox named NAME in the same form. Delegated, so it survives htmx re-rendering the tab.
+  function initSelectAll() {
+    document.addEventListener("change", function (event) {
+      var master = event.target;
+      if (!master || !master.hasAttribute || !master.hasAttribute("data-select-all")) {
+        return;
+      }
+      var form = master.closest("form");
+      if (!form) {
+        return;
+      }
+      var name = master.getAttribute("data-select-all");
+      Array.prototype.forEach.call(
+        form.querySelectorAll('input[type="checkbox"][name="' + name + '"]'),
+        function (box) {
+          box.checked = master.checked;
+        }
+      );
+    });
+  }
+
   function init() {
     initThemeSwitch(document);
     initMenu(document);
     initCollapsibles(document);
     initTabs(document);
+    initSelectAll();
   }
 
   if (document.readyState === "loading") {
