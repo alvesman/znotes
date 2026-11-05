@@ -19,7 +19,14 @@ from typing import Any
 import pytest
 
 from mynotes.platform import service as service_module
-from mynotes.platform.service import ServiceError, ServiceSpec, backend_for_platform, default_spec
+from mynotes.platform.service import (
+    COMPONENTS,
+    DEFAULT_COMPONENTS,
+    ServiceError,
+    ServiceSpec,
+    backend_for_platform,
+    default_spec,
+)
 from mynotes.platform.service.launchd import LaunchdBackend, tcc_protected_roots, tcc_steps
 from mynotes.platform.service.systemd import SystemdBackend, render_unit
 from mynotes.platform.service.windows_task import WindowsTaskBackend, render_script
@@ -472,3 +479,150 @@ def test_web_component_renders_its_own_unit_plist_and_task() -> None:
     script = render_script(web)
     assert "runs the mynotes web at logon" in script
     assert "web.log" in script and "mynotes-web" in script
+
+
+# --- the agent component and installed-package ("tool") mode -----------------------
+
+TOOL_SPEC = ServiceSpec(
+    name="mynotes-agent",
+    exec_args=[
+        "/home/test/.local/share/uv/tools/mynotes/bin/python",
+        "-m",
+        "mynotes",
+        "agent",
+        "run",
+    ],
+    working_dir=Path("/home/test/.config/mynotes"),
+    log_dir=Path("/home/test/Library/Logs/mynotes"),
+    env={},
+    component="agent",
+    description=str(COMPONENTS["agent"]["description"]),
+)
+
+
+def test_all_means_worker_and_web_never_the_agent() -> None:
+    assert DEFAULT_COMPONENTS == ("worker", "web")
+    assert COMPONENTS["agent"]["args"] == ["agent", "run"]
+
+
+def test_systemd_render_agent_matches_golden() -> None:
+    rendered = SystemdBackend().render(TOOL_SPEC)
+    unit = "/home/test/.config/systemd/user/mynotes-agent.service"
+    assert list(rendered) == [unit]
+    assert rendered[unit] == _golden("systemd-agent.service")
+
+
+def test_launchd_render_agent_label_and_log() -> None:
+    rendered = LaunchdBackend().render(TOOL_SPEC)
+    plist = "/home/test/Library/LaunchAgents/com.mynotes.agent.plist"
+    payload = plistlib.loads(rendered[plist].encode("utf-8"))
+    assert payload["Label"] == "com.mynotes.agent"
+    assert payload["ProgramArguments"] == TOOL_SPEC.exec_args
+    assert payload["WorkingDirectory"] == "/home/test/.config/mynotes"
+    assert payload["StandardOutPath"].endswith("/agent.log")
+    assert payload["EnvironmentVariables"] == {}  # no secrets, no config override
+
+
+def test_windows_render_agent_task() -> None:
+    spec = replace(
+        WINDOWS_SPEC,
+        name="mynotes-agent",
+        exec_args=[
+            "C:\\Users\\test\\AppData\\Roaming\\uv\\tools\\mynotes\\Scripts\\pythonw.exe",
+            "-m",
+            "mynotes",
+            "agent",
+            "run",
+        ],
+        working_dir=Path("C:\\Users\\test\\AppData\\Local\\mynotes\\mynotes"),
+        env={},
+        component="agent",
+        description=str(COMPONENTS["agent"]["description"]),
+    )
+    script = render_script(spec)
+    assert "-TaskName 'mynotes-agent'" in script
+    assert "-Argument '-m mynotes agent run'" in script
+    assert "agent.log" in script
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows uses pythonw.exe instead of uv")
+def test_default_spec_agent_component_from_a_checkout(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/uv" if name == "uv" else None)
+    monkeypatch.setattr(service_module, "_project_dir", lambda: tmp_path)
+    spec = default_spec("agent")
+    assert spec.name == "mynotes-agent" and spec.log_name == "agent.log"
+    assert spec.exec_args[-3:] == ["mynotes", "agent", "run"]
+    assert spec.description == COMPONENTS["agent"]["description"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="posix tool mode")
+def test_default_spec_tool_mode_runs_this_interpreter_from_the_config_dir(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(service_module, "_project_dir", lambda: None)
+    monkeypatch.setattr("shutil.which", lambda name: None)  # uv is not needed
+    monkeypatch.setattr(sys, "executable", "/home/test/.local/share/uv/tools/mynotes/bin/python")
+    config_dir = tmp_path / "config" / "mynotes"
+    monkeypatch.setattr(
+        service_module.platformdirs, "user_config_dir", lambda *a, **k: str(config_dir)
+    )
+    monkeypatch.delenv("MYNOTES_CONFIG", raising=False)
+
+    spec = default_spec("agent")
+
+    assert spec.exec_args == TOOL_SPEC.exec_args
+    assert spec.working_dir == config_dir and config_dir.is_dir()
+    assert spec.env == {}
+
+
+def test_default_spec_tool_mode_on_windows_prefers_pythonw(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(service_module, "_project_dir", lambda: None)
+    scripts = tmp_path / "Scripts"
+    scripts.mkdir()
+    (scripts / "python.exe").write_text("", encoding="utf-8")
+    monkeypatch.setattr(sys, "executable", str(scripts / "python.exe"))
+    monkeypatch.setattr(
+        service_module.platformdirs, "user_config_dir", lambda *a, **k: str(tmp_path / "cfg")
+    )
+
+    spec = default_spec("agent")
+    assert spec.exec_args == [str(scripts / "python.exe"), "-m", "mynotes", "agent", "run"]
+    assert spec.env["MYNOTES_LOG_FILE"] == str(spec.log_dir / "agent.log")
+
+    (scripts / "pythonw.exe").write_text("", encoding="utf-8")
+    assert default_spec("agent").exec_args[0] == str(scripts / "pythonw.exe")
+
+
+def test_project_dir_is_none_inside_site_packages(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A stray pyproject.toml above an installed package must not turn it into a checkout."""
+    (tmp_path / "pyproject.toml").write_text("", encoding="utf-8")
+    package_file = tmp_path / "venv" / "lib" / "site-packages" / "mynotes" / "platform" / "service"
+    package_file.mkdir(parents=True)
+    monkeypatch.setattr(service_module, "__file__", str(package_file / "__init__.py"))
+    assert service_module._project_dir() is None
+
+
+def test_tcc_steps_without_uv_name_the_interpreter_only() -> None:
+    lines = tcc_steps([FAKE_HOME / "Documents"], None, "/tools/mynotes/bin/python3.12")
+    joined = "\n".join(lines)
+    assert "uv binary" not in joined
+    assert "2. Add the Python interpreter the service runs: /tools/mynotes/bin/python3.12" in joined
+
+
+def test_launchd_hints_for_an_installed_agent_skip_uv(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        LaunchdBackend,
+        "_configured_roots",
+        staticmethod(lambda component="worker": [FAKE_HOME / "Documents" / "notes"]),
+    )
+    lines = LaunchdBackend().hints(TOOL_SPEC)
+    joined = "\n".join(lines)
+    assert "Full Disk Access" in joined and "uv binary" not in joined
+    assert "the service runs" in joined

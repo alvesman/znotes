@@ -316,6 +316,7 @@ mynotes has three parts that can run independently:
 | Worker, as a service (runs in the background, starts at every login) | `uv run mynotes service install` (once) | `uv run mynotes service uninstall` | Picking up changes to your notes |
 | Web interface, interactive | `uv run mynotes serve` | Ctrl+C | The browser pages and the HTTP API |
 | Web interface, as a service (starts at every login) | `uv run mynotes service install --component web` (once) | `uv run mynotes service uninstall --component web` | The browser pages and the HTTP API |
+| Agent of server mode (your machine feeds a shared server) | `mynotes agent setup` (once), then `mynotes agent run` or `mynotes service install --component agent` | Ctrl+C, or `mynotes service uninstall --component agent` | See [Shared (team) use](#17-shared-team-use-a-server-and-agents) |
 
 Run each part one way or the other, not both: one worker and one web server are enough. The interactive way suits trying mynotes out or watching what happens; the services suit everyday use ([details](#start-the-worker-and-the-web-interface-automatically)).
 
@@ -525,16 +526,17 @@ Instead of keeping terminals open, install the worker, the web interface, or bot
 cd ~/mynotes
 uv run mynotes service install                      # the worker (default)
 uv run mynotes service install --component web      # the web interface (http://127.0.0.1:8765)
-uv run mynotes service install --component all      # both
+uv run mynotes service install --component all      # both (never the agent)
+mynotes service install --component agent           # server mode: the agent, after `mynotes agent setup`
 ```
 
-This uses systemd on Linux (user units `mynotes-worker` and `mynotes-web`), launchd on macOS and Task Scheduler on Windows. To see what it would install without changing anything, add `--dry-run`:
+This uses systemd on Linux (user units `mynotes-worker`, `mynotes-web` and `mynotes-agent`), launchd on macOS and Task Scheduler on Windows. The agent service runs from the user config folder and reads the settings `mynotes agent setup` wrote there (and a `.env` in that folder), never the variables exported in your shell. To see what it would install without changing anything, add `--dry-run`:
 
 ```bash
 uv run mynotes service install --dry-run --component all
 ```
 
-Related commands (`--component worker|web|all`, worker by default; `logs` takes `worker` or `web`):
+Related commands (`--component worker|web|agent|all`, worker by default; `logs` takes one component):
 
 ```bash
 uv run mynotes service status --component all   # installed? running?
@@ -543,7 +545,7 @@ uv run mynotes service logs --component web     # the web interface's log
 uv run mynotes service uninstall --component all
 ```
 
-Logs: Linux `journalctl --user -u mynotes-worker -f` and `journalctl --user -u mynotes-web -f`; macOS `~/Library/Logs/mynotes/worker.log` and `web.log`; Windows `%LOCALAPPDATA%\mynotes\mynotes\Logs\worker.log` and `web.log`.
+Logs: Linux `journalctl --user -u mynotes-worker -f` (likewise `mynotes-web`, `mynotes-agent`); macOS `~/Library/Logs/mynotes/worker.log`, `web.log`, `agent.log`; Windows `%LOCALAPPDATA%\mynotes\mynotes\Logs\worker.log`, `web.log`, `agent.log` (on Windows the log file variable is shared, so the last installed component's file name wins).
 
 On Linux the services run while you are logged in; to keep them running without a session (a headless machine), run `loginctl enable-linger $USER` once. The web service listens on localhost only; to reach it from other machines, see [Shared (team) use](#17-shared-team-use-a-server-and-agents).
 
@@ -1065,18 +1067,21 @@ mynotes token list / mynotes token revoke <id>
 
 (In the Docker setup of the server each command is prefixed with `docker compose exec worker`.) A token's scopes decide what it may do, and ACL grants decide what its user may read: `--root` grants that root to its user, while an admin token reads nothing until it is granted, as above.
 
-and alice runs on her machine, with the server's address, her agent token, the root's name and her folder in `MYNOTES_AGENT_SERVER_URL`, `MYNOTES_AGENT_TOKEN`, `MYNOTES_AGENT_ROOT` and `MYNOTES_AGENT_PATH`:
+and alice installs the agent on her machine without cloning anything, at the server's version, then stores the server's address, her agent token, the root's name and her folder with the setup wizard:
 
 ```bash
-uv run mynotes agent run        # one full sync, then it watches the folder; Ctrl+C stops it
-uv run mynotes agent sync       # one sync, then exit
-uv run mynotes agent status     # what the server knows about this root
+uv tool install git+https://github.com/alvesman/znotes@v<version>   # uv fetches Python 3.12 if needed
+mynotes agent setup             # asks for the four settings, checks them against the server, saves them
+mynotes agent run               # one full sync, then it watches the folder; Ctrl+C stops it
+mynotes agent sync              # one sync, then exit
+mynotes agent status            # what the server knows about this root
+mynotes agent setup --show      # the settings in use, token masked
+mynotes service install --component agent   # start the agent at every login
 ```
 
-The agent needs only the core dependencies: `uv sync --no-dev` installs those alone (the
-`server` extra is what the server, worker and web UI add), and the image
-`ghcr.io/alvesman/znotes:<version>-agent` carries just that, about a third of the server image
-(see `deployment/server/README.md` for the `docker run` line).
+The commands are `mynotes ...` here, not `uv run mynotes ...`: the tool install puts `mynotes` on the path. The wizard writes the `agent:` section of the user config file (`~/.config/mynotes/mynotes.yaml` on Linux, see [Where settings live](#where-settings-live)) with mode 600, since the token is inside; the `MYNOTES_AGENT_SERVER_URL`, `MYNOTES_AGENT_TOKEN`, `MYNOTES_AGENT_ROOT` and `MYNOTES_AGENT_PATH` variables still override it. Updating is `uv tool install --force git+https://github.com/alvesman/znotes@v<new version>` followed by a restart of the agent; an agent on another version than the server warns at every sync.
+
+From a checkout of the repository the same commands work as `uv run mynotes agent ...` after `uv sync --no-dev` (the core dependencies are exactly what the agent needs; the `server` extra is what the server, worker and web UI add). The image `ghcr.io/alvesman/znotes:<version>-agent` carries just that, about a third of the server image (see `deployment/server/README.md` for the `docker run` line).
 
 On the server the notes of a remote root appear under the root's name (`alice-notes/ideas/plan.md`), and alice's read access is granted under that prefix when the root is created. **Open in app** is not offered for uploaded notes; **Open** and **Download** serve the server's copy. A knowledge-graph entity exists for a person only if some of its evidence is in a document they may read.
 

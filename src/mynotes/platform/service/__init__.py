@@ -23,8 +23,17 @@ SERVICE_NAME = "mynotes-worker"
 COMPONENTS: dict[str, dict[str, Any]] = {
     "worker": {"args": ["worker"], "description": "mynotes worker (scan, index, graph)"},
     "web": {"args": ["serve"], "description": "mynotes web interface and API (serve)"},
+    "agent": {
+        "args": ["agent", "run"],
+        "description": "mynotes agent (feeds a remote root of a mynotes server)",
+    },
 }
 """The installable components: the CLI subcommand each runs and its unit description."""
+
+DEFAULT_COMPONENTS: tuple[str, ...] = ("worker", "web")
+"""What ``--component all`` installs: never the agent, which needs ``mynotes agent setup``."""
+
+_INSTALLED_TREE_MARKERS = frozenset({"site-packages", "dist-packages"})
 
 
 class ServiceError(RuntimeError):
@@ -40,12 +49,14 @@ class ServiceSpec:
         exec_args: Absolute executable plus arguments; on Linux/macOS the uv
             path plus ``["run", "--directory", <project dir>, "mynotes",
             "worker"]``, on Windows the project venv's ``pythonw.exe`` plus
-            ``["-m", "mynotes", "worker"]``.
-        working_dir: The project directory (contains ``pyproject.toml``).
+            ``["-m", "mynotes", "worker"]``; for an installed package the
+            running interpreter plus ``["-m", "mynotes", ...]``.
+        working_dir: The project directory (contains ``pyproject.toml``), or
+            the user config directory for an installed package.
         log_dir: Per-OS user log directory (``platformdirs.user_log_dir``).
         env: Extra environment variables for the service; ``MYNOTES_CONFIG``
             when set, plus ``MYNOTES_LOG_FILE`` on Windows. Never secrets:
-            those stay in the project's ``.env``.
+            those stay in the ``.env`` or settings file of ``working_dir``.
     """
 
     name: str
@@ -125,48 +136,74 @@ def backend_for_platform() -> ServiceBackend:
     raise ServiceError(f"unsupported platform for service install: {sys.platform}")
 
 
-def _project_dir() -> Path:
-    """Best-effort project directory: the nearest ancestor holding pyproject.toml.
+def _project_dir() -> Path | None:
+    """The uv project this package runs from, or None for an installed package.
 
     Returns:
         The first ancestor of this file with a ``pyproject.toml`` (the normal
         case: the repo checked out and used through ``uv run --directory``);
-        the current working directory when the package is installed into a
-        site-packages tree without one.
+        None when the package sits in a ``site-packages`` tree (``uv tool
+        install``, pip) or no ``pyproject.toml`` is found at all.
     """
     for candidate in Path(__file__).resolve().parents:
+        if candidate.name in _INSTALLED_TREE_MARKERS:
+            return None
         if (candidate / "pyproject.toml").is_file():
             return candidate
-    return Path.cwd().resolve()
+    return None
 
 
 def default_spec(component: str = "worker") -> ServiceSpec:
     """Build the :class:`ServiceSpec` for this machine.
 
-    Locates ``uv`` on PATH (on Windows the project venv's ``pythonw.exe``
-    instead), the project directory and the per-OS log directory, and carries
-    ``MYNOTES_CONFIG`` from the environment when set.
+    From a uv checkout: locates ``uv`` on PATH (on Windows the project venv's
+    ``pythonw.exe`` instead) and runs ``mynotes`` through the project. From an
+    installed package (``uv tool install``): runs this interpreter with
+    ``-m mynotes`` from the user config directory, where the settings file
+    (and a ``.env``) live. Both carry ``MYNOTES_CONFIG`` from the environment
+    when set.
 
     Args:
-        component: ``"worker"`` (``mynotes worker``) or ``"web"`` (``mynotes
-            serve``, localhost:8765); see :data:`COMPONENTS`.
+        component: ``"worker"`` (``mynotes worker``), ``"web"`` (``mynotes
+            serve``, localhost:8765) or ``"agent"`` (``mynotes agent run``);
+            see :data:`COMPONENTS`.
 
     Returns:
         The ready-to-install spec named ``"mynotes-<component>"``.
 
     Raises:
-        ServiceError: When ``uv`` is missing (on Windows: ``pythonw.exe``), or
-            the component is unknown.
+        ServiceError: When ``uv`` is missing (on Windows: ``pythonw.exe``) in a
+            checkout, or the component is unknown.
     """
     if component not in COMPONENTS:
         raise ServiceError(f"unknown component {component!r}; one of {sorted(COMPONENTS)}")
     command = list(COMPONENTS[component]["args"])
-    working_dir = _project_dir()
     log_dir = Path(platformdirs.user_log_dir("mynotes"))
     env: dict[str, str] = {}
     config_env = os.environ.get("MYNOTES_CONFIG")
     if config_env:
         env["MYNOTES_CONFIG"] = config_env
+    project = _project_dir()
+    if project is None:
+        working_dir = Path(platformdirs.user_config_dir("mynotes"))
+        working_dir.mkdir(parents=True, exist_ok=True)  # systemd refuses a missing directory
+        python = Path(sys.executable)
+        if sys.platform == "win32":
+            windowless = python.with_name("pythonw.exe")
+            if windowless.is_file():
+                python = windowless
+            env.setdefault("MYNOTES_LOG_FILE", str(log_dir / f"{component}.log"))
+        exec_args = [str(python), "-m", "mynotes", *command]
+        return ServiceSpec(
+            name=f"mynotes-{component}",
+            exec_args=exec_args,
+            working_dir=working_dir,
+            log_dir=log_dir,
+            env=env,
+            component=component,
+            description=str(COMPONENTS[component]["description"]),
+        )
+    working_dir = project
     if sys.platform == "win32":
         pythonw = working_dir / ".venv" / "Scripts" / "pythonw.exe"
         if not pythonw.is_file():

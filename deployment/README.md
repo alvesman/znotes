@@ -13,15 +13,15 @@ There are three ways to run mynotes. All use the same PostgreSQL 18.6 and OpenSe
 | | Infrastructure only | Full stack | Server |
 |---|---|---|---|
 | **Who uses it** | You, on this machine; no sign-in | You, on this machine; no sign-in | Several people (or you on several machines); each signs in with a personal token and sees only their own notes |
-| **Needs on the host** | Docker, Python 3.12, uv, this repository | Docker and the `full-stack` folder (the image is downloaded) | Server: Docker, the `server` folder, and HTTPS (Caddy or your own proxy). Each person: the agent, with uv or Docker |
+| **Needs on the host** | Docker, Python 3.12, uv, this repository | Docker and the `full-stack` folder (the image is downloaded) | Server: Docker, the `server` folder, and HTTPS (Caddy or your own proxy). Each person: the agent, installed with `uv tool install` (no clone) or run in Docker |
 | **Picking up edits instantly** | Native file events (inotify, FSEvents, Windows): cheap even on big folders | Polling every 2 s: more CPU and disk reads on large folders | The agent reacts within seconds and re-lists the folder every 15 minutes |
 | **Open in app** (open a cited file in Word, a PDF viewer…) | Works | Not available (a container can't launch your desktop apps) | Not available (the originals are on the owners' machines); Open and Download serve the server's copy |
 | **Access to your notes** | Any folders, anywhere on the machine | One folder, mounted read-only (several roots must share a parent folder, or you add mounts to the compose file) | The folder each agent watches; the server keeps an uploaded copy and never sees the folders |
-| **Start at boot** | `mynotes service install` (systemd, launchd, Task Scheduler) | Docker restarts the containers (`restart: unless-stopped`) whenever Docker starts | Server: like the full stack. Agent: `--restart unless-stopped` in a container; a native agent is started by hand |
+| **Start at boot** | `mynotes service install` (systemd, launchd, Task Scheduler) | Docker restarts the containers (`restart: unless-stopped`) whenever Docker starts | Server: like the full stack. Agent: `mynotes service install --component agent` (systemd, launchd, Task Scheduler), or `--restart unless-stopped` in a container |
 | **Commands** | `uv run mynotes …` | `docker compose exec worker mynotes …` | `docker compose exec worker mynotes …` on the server; `mynotes agent …` on each machine |
 | **Claude Code (MCP)** | `uv run --directory …` | `docker compose run …` | On the server only (it needs direct database access) |
 | **Backups** | `mynotes backup` / `mynotes restore` | `pg_dump` / `pg_restore` in the postgres container | `pg_dump` plus the `apphome` volume (the uploaded files) |
-| **Updating** | `git pull`, `uv sync`, `mynotes init`, restart the worker | `docker compose pull`, `docker compose up -d` | Bump `MYNOTES_VERSION`, `docker compose pull`, `docker compose up -d`; update the agents to the same version |
+| **Updating** | `git pull`, `uv sync`, `mynotes init`, restart the worker | `docker compose pull`, `docker compose up -d` | Bump `MYNOTES_VERSION`, `docker compose pull`, `docker compose up -d`; update the agents to the same version (`uv tool install --force git+...@v<version>`, or the new `-agent` image) |
 | **Exposure** | OpenSearch and PostgreSQL on localhost ports | Only the web UI/API port on localhost; the databases stay inside Docker | The web UI/API over HTTPS; the databases stay inside Docker |
 
 The first two keep everything on your machine and have no login, so the web UI/API is published on `127.0.0.1` only.

@@ -11,6 +11,7 @@ import blake3
 import httpx
 import pytest
 
+from mynotes import __version__
 from mynotes.agent import sync as sync_mod
 from mynotes.agent.client import AgentAuthError, ServerClient
 from mynotes.agent.hashcache import HashCache
@@ -28,16 +29,17 @@ class FakeServer:
         self.uploads: list[tuple[str, bytes, dict[str, str]]] = []
         self.status_code = 200
         self.max_upload_mb = 200
+        self.server_version: str | None = __version__
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         path = request.url.path
         if request.headers.get("authorization") != "Bearer mn_secret":
             return httpx.Response(401, json={"detail": "invalid token"})
         if path.endswith("/status"):
-            return httpx.Response(
-                self.status_code,
-                json={"root": "alice-notes", "files": {}, "max_upload_mb": self.max_upload_mb},
-            )
+            status = {"root": "alice-notes", "files": {}, "max_upload_mb": self.max_upload_mb}
+            if self.server_version is not None:
+                status["server_version"] = self.server_version
+            return httpx.Response(self.status_code, json=status)
         if path.endswith("/manifest"):
             payload = json.loads(request.content)
             self.manifests.append(payload)
@@ -225,3 +227,37 @@ def test_files_over_the_server_limit_are_skipped_and_reported_once(
     assert first.failed == [] and "big.pdf" not in {rel for rel, _b, _h in server.uploads}
     assert all("big.pdf" not in e["rel_path"] for e in server.manifests[-1]["entries"])
     assert sum("larger than the server accepts" in r.message for r in caplog.records) == 1
+
+
+def test_learn_limits_warns_once_about_a_server_on_another_version(
+    world, caplog: pytest.LogCaptureFixture
+) -> None:
+    agent, server, _folder = world
+    with caplog.at_level("WARNING"):
+        agent.learn_limits()  # same version: quiet
+        server.server_version = None  # an older server says nothing: quiet
+        agent.learn_limits()
+        assert not [r for r in caplog.records if "install the server's version" in r.message]
+        server.server_version = "0.0.1"
+        agent.learn_limits()
+    warnings = [r.message for r in caplog.records if "install the server's version" in r.message]
+    assert len(warnings) == 1
+    assert "0.0.1" in warnings[0] and __version__ in warnings[0] and "@v0.0.1" in warnings[0]
+
+
+def test_backoff_retries_after_an_httpx_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """httpx errors are not OSError: the runner must still retry them, not crash."""
+    import threading
+
+    from mynotes.agent import runner as runner_mod
+
+    monkeypatch.setattr(runner_mod, "_BACKOFF_START_S", 0.001)
+    attempts = {"n": 0}
+
+    def flaky() -> None:
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise httpx.ConnectError("connection refused")
+
+    runner_mod._with_backoff(threading.Event(), "connecting", flaky)
+    assert attempts["n"] == 2

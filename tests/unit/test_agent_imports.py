@@ -31,6 +31,7 @@ from typer.testing import CliRunner
 from mynotes.cli import app
 assert CliRunner().invoke(app, ["agent", "--help"]).exit_code == 0
 import mynotes.agent.client, mynotes.agent.hashcache, mynotes.agent.runner, mynotes.agent.sync
+import mynotes.agent.setup, mynotes.platform.service
 import mynotes.scan.hashing, mynotes.scan.ignore, mynotes.scan.walker, mynotes.scan.watch
 import mynotes.platform.fsinfo
 print(json.dumps(sorted(m.split(".")[0] for m in sys.modules)))

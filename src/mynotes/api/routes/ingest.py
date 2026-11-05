@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy import select
 from starlette.concurrency import run_in_threadpool
 
+from mynotes import __version__
 from mynotes.api import schemas
 from mynotes.api.auth import PrincipalDep
 from mynotes.config import get_settings
@@ -245,6 +246,7 @@ def root_status(root: RootDep) -> dict[str, Any]:
     with session_scope() as session:
         data = remote.root_status(session, root)
     data["max_upload_mb"] = get_settings().storage.max_upload_mb
+    data["server_version"] = __version__  # the agent warns when its own differs
     return data
 
 

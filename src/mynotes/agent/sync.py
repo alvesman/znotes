@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from mynotes import PROJECT_URL, __version__
 from mynotes.agent.client import ServerClient
 from mynotes.agent.hashcache import HashCache
 from mynotes.config import AgentConfig, ScanConfig
@@ -58,11 +59,28 @@ class AgentSync:
         self._reported_large: set[str] = set()
 
     def learn_limits(self) -> dict[str, Any]:
-        """Ask the server about this root; remember its upload limit. Returns the status."""
+        """Ask the server about this root; remember its upload limit. Returns the status.
+
+        A server on another version gets one warning with the command that
+        installs its version (the ingest API is only promised to match within
+        one version); an older server that does not say its version is left alone.
+        """
         status = self.client.status()
         limit_mb = status.get("max_upload_mb")
         if isinstance(limit_mb, int | float) and limit_mb > 0:
             self.max_upload_bytes = int(limit_mb * 1024 * 1024)
+        server_version = status.get("server_version")
+        if server_version is None:
+            logger.debug("the server does not report its version (older than 0.4.0rc20)")
+        elif str(server_version) != __version__:
+            logger.warning(
+                "the server runs mynotes %s, this agent %s; install the server's version: "
+                "uv tool install --force git+%s@v%s",
+                server_version,
+                __version__,
+                PROJECT_URL,
+                server_version,
+            )
         return status
 
     def _too_large(self, stat: FileStat) -> bool:

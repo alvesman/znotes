@@ -78,19 +78,37 @@ when a secret may have leaked.
 The agent must run the **same version as the server** (`MYNOTES_VERSION` in the server's
 `.env`): the ingest API is not promised to stay the same between versions.
 
-Natively (Python 3.12 and uv, any OS):
+Natively, with [uv](https://docs.astral.sh/uv/) (any OS; uv fetches Python 3.12 itself when
+the machine has none). No clone is needed: the agent installs straight from the public
+repository at the server's version:
 
 ```bash
-git clone https://github.com/alvesman/znotes.git mynotes && cd mynotes
-git checkout v0.4.0rc19                       # the server's version
-uv sync --no-dev                             # the agent's dependencies only
-export MYNOTES_AGENT_SERVER_URL=https://notes.example.org
-export MYNOTES_AGENT_TOKEN=mn_...            # the agent token
-export MYNOTES_AGENT_ROOT=alice-notes
-export MYNOTES_AGENT_PATH=~/Documents/notes
-uv run mynotes agent sync                    # one full sync, then exit
-uv run mynotes agent run                     # sync, then watch the folder until stopped
+uv tool install git+https://github.com/alvesman/znotes@v0.4.0rc20   # the server's version
+mynotes agent setup                     # server URL, token, root, folder; checked against the server
+mynotes agent sync                      # one full sync, then exit
+mynotes agent run                       # sync, then watch the folder until stopped
+mynotes service install --component agent   # optional: start it at every login
 ```
+
+`mynotes agent setup` writes the four settings into the user config file, mode 600 since the
+token is inside: Linux `~/.config/mynotes/mynotes.yaml`, macOS
+`~/Library/Application Support/mynotes/mynotes.yaml`, Windows
+`%LOCALAPPDATA%\mynotes\mynotes\mynotes.yaml`. The `MYNOTES_AGENT_SERVER_URL`, `_TOKEN`,
+`_ROOT` and `_PATH` variables still override it (a `.env` in that folder is read too), the
+options `--server-url`, `--token`, `--root` and `--path` make it scriptable, and
+`mynotes agent setup --show` prints what is in use with the token masked. The service
+(systemd user unit, LaunchAgent or Task Scheduler task) runs `mynotes agent run` from that
+folder, so it sees the file but never your shell's exports.
+
+- If `mynotes` is not found after the install, run `uv tool update-shell` and open a new
+  terminal (uv's tools live in `~/.local/bin`).
+- To update: `uv tool install --force git+https://github.com/alvesman/znotes@v<new version>`,
+  then restart the agent (`mynotes service uninstall --component agent` and `install` again, or
+  Ctrl+C and `mynotes agent run`). `uv tool upgrade mynotes` keeps the pinned tag, so it does
+  not move to a new version. An agent on another version than the server logs a warning with
+  this command at every sync.
+- A one-off run without installing anything:
+  `uvx --from git+https://github.com/alvesman/znotes@v0.4.0rc20 mynotes agent sync`.
 
 Or in a container, with the folder mounted read-only. The `-agent` image carries only what the
 agent needs (about a third of the server image):
@@ -100,15 +118,15 @@ docker run -d --name mynotes-agent --restart unless-stopped \
   -v "$HOME/Documents/notes:/notes:ro" \
   -e MYNOTES_AGENT_SERVER_URL=https://notes.example.org -e MYNOTES_AGENT_TOKEN=mn_... \
   -e MYNOTES_AGENT_ROOT=alice-notes -e MYNOTES_AGENT_PATH=/notes \
-  ghcr.io/alvesman/znotes:0.4.0rc19-agent              # the server's version, not "latest"
+  ghcr.io/alvesman/znotes:0.4.0rc20-agent              # the server's version, not "latest"
 ```
 
-The same settings fit in a `mynotes.yaml` next to the agent (`agent:` section, see the
-repository's `mynotes.example.yaml`); keep the token out of files you share. The agent needs no
-database, search index or model endpoint. It hashes files once (cached), uploads only new or
-changed ones, re-lists the folder every 15 minutes, reacts to changes within seconds, and
-retries with backoff when the server is unreachable. `mynotes agent status` shows what the
-server knows about the root.
+The agent needs no database, search index or model endpoint. It hashes files once (cached),
+uploads only new or changed ones, re-lists the folder every 15 minutes, reacts to changes within
+seconds, and retries with backoff when the server is unreachable. `mynotes agent status` shows
+what the server knows about the root, including the server's version. The other agent settings
+(`settle_seconds`, `scan_interval_minutes`, `watch`, ...) can be added to the same `agent:`
+section by hand; see the repository's `mynotes.example.yaml`.
 
 ## What people see
 

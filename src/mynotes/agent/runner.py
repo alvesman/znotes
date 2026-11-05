@@ -8,6 +8,7 @@ import threading
 import time
 from pathlib import Path
 
+import httpx
 import platformdirs
 
 from mynotes import __version__
@@ -30,11 +31,13 @@ class AgentNotConfigured(RuntimeError):
 def agent_config(settings: Settings) -> AgentConfig:
     if settings.agent is None:
         raise AgentNotConfigured(
-            "no agent settings: set agent.server_url, agent.root, agent.path and "
-            "MYNOTES_AGENT_TOKEN (see mynotes.example.yaml)"
+            "no agent settings: run 'mynotes agent setup' (or set agent.server_url, "
+            "agent.root, agent.path and MYNOTES_AGENT_TOKEN, see mynotes.example.yaml)"
         )
     if settings.agent.token is None:
-        raise AgentNotConfigured("agent.token is not set (MYNOTES_AGENT_TOKEN)")
+        raise AgentNotConfigured(
+            "agent.token is not set: run 'mynotes agent setup' or set MYNOTES_AGENT_TOKEN"
+        )
     return settings.agent
 
 
@@ -120,7 +123,7 @@ def _with_backoff(stop: threading.Event, what: str, action) -> None:
             return
         except AgentAuthError:
             raise
-        except (ServerError, OSError) as exc:
+        except (ServerError, OSError, httpx.HTTPError) as exc:
             logger.warning("%s failed (%s); retrying in %.0f s", what, exc, delay)
         except Exception:
             logger.exception("%s failed; retrying in %.0f s", what, delay)

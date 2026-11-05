@@ -75,13 +75,15 @@ def python_for_uv(uv: Path) -> str | None:
     return result.stdout.strip() or None
 
 
-def tcc_steps(protected: Iterable[Path], uv: Path, python: str | None) -> list[str]:
+def tcc_steps(protected: Iterable[Path], uv: Path | None, python: str | None) -> list[str]:
     """Build the Full Disk Access guidance for protected roots.
 
     Args:
         protected: The roots that need the permission.
-        uv: The uv binary the service runs.
-        python: The interpreter reported by ``uv python find 3.12``, if found.
+        uv: The uv binary the service runs, or None for an installed package
+            (the service runs its interpreter directly).
+        python: The interpreter (``uv python find 3.12``, or the installed
+            package's own), if known.
 
     Returns:
         Human-readable steps mentioning the binaries to whitelist.
@@ -89,14 +91,20 @@ def tcc_steps(protected: Iterable[Path], uv: Path, python: str | None) -> list[s
     roots_text = ", ".join(str(path) for path in protected)
     lines = [
         f"These roots are in folders macOS protects (TCC): {roots_text}",
-        "The worker cannot read them from a LaunchAgent until you grant access:",
+        "The service cannot read them from a LaunchAgent until you grant access:",
         "  1. System Settings, Privacy & Security, Full Disk Access (or Files and Folders).",
-        f"  2. Add the uv binary: {uv}",
     ]
+    step = 2
+    if uv is not None:
+        lines.append(f"  {step}. Add the uv binary: {uv}")
+        step += 1
     if python:
-        lines.append(f"  3. Add the Python interpreter uv uses: {python}")
+        who = "uv uses" if uv is not None else "the service runs"
+        lines.append(f"  {step}. Add the Python interpreter {who}: {python}")
     else:
-        lines.append("  3. Add the Python interpreter uv uses (find it with: uv python find 3.12)")
+        lines.append(
+            f"  {step}. Add the Python interpreter uv uses (find it with: uv python find 3.12)"
+        )
     return lines
 
 
@@ -181,19 +189,26 @@ class LaunchdBackend:
 
     def hints(self, spec: ServiceSpec) -> list[str]:
         """Return the TCC steps when a configured root needs Full Disk Access."""
-        protected = tcc_protected_roots(self._configured_roots())
+        protected = tcc_protected_roots(self._configured_roots(spec.component))
         if not protected:
             return []
-        uv = Path(spec.exec_args[0])
-        return tcc_steps(protected, uv, python_for_uv(uv))
+        executable = Path(spec.exec_args[0])
+        if executable.name.startswith("uv"):
+            return tcc_steps(protected, executable, python_for_uv(executable))
+        # an installed package: the service runs its interpreter (a symlink into uv's
+        # Python builds; TCC wants the real binary)
+        return tcc_steps(protected, None, str(executable.resolve()))
 
     @staticmethod
-    def _configured_roots() -> list[Path]:
-        """Read the configured source roots; empty when settings are broken."""
+    def _configured_roots(component: str = "worker") -> list[Path]:
+        """The folders the component reads (the agent's folder, else the local roots)."""
         try:
             from mynotes.config import get_settings
 
-            return [root.path for root in get_settings().roots]
+            settings = get_settings()
+            if component == "agent":
+                return [Path(settings.agent.path).expanduser()] if settings.agent else []
+            return [root.path for root in settings.roots]
         except Exception:
             logger.warning("could not read configured roots for the TCC check", exc_info=True)
             return []

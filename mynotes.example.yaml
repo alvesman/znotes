@@ -187,8 +187,9 @@ auth:
   # admin_principals: [alice, "group:mynotes-admins"]  # oidc users allowed to review, merge and see Status
   # trust_proxy_header: false    # also accept X-Forwarded-Access-Token (oauth2-proxy and similar)
 
-# The agent of server mode (nothing else above is needed on that machine; the token is better
-# kept in the environment: MYNOTES_AGENT_SERVER_URL/TOKEN/ROOT/PATH).
+# The agent of server mode (nothing else above is needed on that machine). `mynotes agent setup`
+# writes the first four keys into the user config file (token included, mode 600); the
+# MYNOTES_AGENT_SERVER_URL/TOKEN/ROOT/PATH variables override them. The rest is set here by hand.
 # agent:
 #   server_url: https://notes.example.org
 #   token: null

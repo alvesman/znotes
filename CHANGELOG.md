@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.0rc20 (2026-11-05, preview of server mode)
+
+- **Agent install without a clone:** `uv tool install git+https://github.com/alvesman/znotes@v<version>`
+  puts `mynotes` on the path (uv fetches Python 3.12 if needed). New `mynotes agent setup` asks
+  for the server URL, token, root and folder, checks them against the server and writes them to
+  the user config file (mode 600; the `MYNOTES_AGENT_*` variables still override it);
+  `--show` prints the settings in use with the token masked. New
+  `mynotes service install --component agent` starts the agent at every login (systemd user
+  unit, LaunchAgent or Task Scheduler task), also from a tool install; `--component all` means
+  worker and web, never the agent. The server now reports its version to agents, which warn
+  when theirs differs, and an unreachable server is a message, not a traceback.
+
 ## 0.4.0rc19 (2026-11-05, preview of server mode)
 
 - **Chat:** each citation under an answer shows the same match percentage as search results,

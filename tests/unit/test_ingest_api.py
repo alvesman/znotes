@@ -10,6 +10,7 @@ import blake3
 import pytest
 from fastapi.testclient import TestClient
 
+from mynotes import __version__
 from mynotes.api.app import create_app
 from mynotes.api.auth import get_principal
 from mynotes.api.routes import ingest
@@ -184,4 +185,6 @@ def test_status_tells_the_agent_the_upload_limit(
 
     monkeypatch.setattr(ingest, "get_settings", lambda: Settings(storage={"max_upload_mb": 50}))
     monkeypatch.setattr(remote, "root_status", lambda session, root: {"root": root.name})
-    assert client.get("/v1/roots/alice-notes/status").json()["max_upload_mb"] == 50
+    body = client.get("/v1/roots/alice-notes/status").json()
+    assert body["max_upload_mb"] == 50
+    assert body["server_version"] == __version__  # the agent compares it with its own

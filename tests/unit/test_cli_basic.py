@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
@@ -167,3 +169,49 @@ def test_service_logs_offers_one_component_at_a_time() -> None:
     assert result.exit_code == 0
     assert "worker" in result.output and "web" in result.output
     assert " or all" not in result.output
+
+
+def test_service_install_all_never_includes_the_agent(monkeypatch: pytest.MonkeyPatch) -> None:
+    from mynotes.platform import service as service_module
+    from mynotes.platform.service import ServiceSpec
+
+    class FakeBackend:
+        def render(self, spec: ServiceSpec) -> dict[str, str]:
+            return {f"/units/{spec.name}": spec.description}
+
+    def fake_spec(component: str = "worker") -> ServiceSpec:
+        return ServiceSpec(
+            name=f"mynotes-{component}",
+            exec_args=["/bin/x"],
+            working_dir=Path("/tmp"),
+            log_dir=Path("/tmp"),
+            component=component,
+        )
+
+    monkeypatch.setattr(service_module, "default_spec", fake_spec)
+    monkeypatch.setattr(service_module, "backend_for_platform", lambda: FakeBackend())
+    result = runner.invoke(app, ["service", "install", "-c", "all", "--dry-run"])
+    assert result.exit_code == 0, result.output
+    assert "mynotes-worker" in result.output and "mynotes-web" in result.output
+    assert "mynotes-agent" not in result.output
+
+
+def test_service_install_agent_needs_the_agent_settings(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from mynotes.config import reset_settings_cache
+
+    monkeypatch.chdir(tmp_path)
+    for key in list(os.environ):
+        if key.startswith("MYNOTES_"):
+            monkeypatch.delenv(key)
+    monkeypatch.setattr(
+        "mynotes.config.platformdirs.user_config_dir", lambda *a, **k: str(tmp_path / "cfg")
+    )
+    reset_settings_cache()
+    try:
+        result = runner.invoke(app, ["service", "install", "-c", "agent", "--dry-run"])
+    finally:
+        reset_settings_cache()
+    assert result.exit_code == 1
+    assert "run 'mynotes agent setup' first" in result.output

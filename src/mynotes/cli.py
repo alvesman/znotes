@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import httpx
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -884,7 +885,10 @@ _COMPONENT_OPTION = typer.Option(
     "worker",
     "--component",
     "-c",
-    help="worker (scan, index, graph), web (the web interface, localhost:8765) or all.",
+    help=(
+        "worker (scan, index, graph), web (the web interface, localhost:8765), "
+        "agent (the server-mode agent, after 'mynotes agent setup') or all (worker and web)."
+    ),
 )
 
 
@@ -892,7 +896,7 @@ _LOG_COMPONENT_OPTION = typer.Option(
     "worker",
     "--component",
     "-c",
-    help="worker (scan, index, graph) or web (the web interface); one at a time.",
+    help="worker (scan, index, graph), web (the web interface) or agent; one at a time.",
 )
 
 
@@ -908,17 +912,35 @@ def _service_parts(component: str = "worker") -> tuple[Any, Any]:
 
 
 def _components(selected: str) -> list[str]:
-    """Expand the ``--component`` value (``all`` = worker then web)."""
-    from mynotes.platform.service import COMPONENTS
+    """Expand the ``--component`` value (``all`` = worker then web, never the agent)."""
+    from mynotes.platform.service import COMPONENTS, DEFAULT_COMPONENTS
 
     if selected == "all":
-        return list(COMPONENTS)
+        return list(DEFAULT_COMPONENTS)
     if selected not in COMPONENTS:
         console.print(
             f"[red]Unknown component {selected!r}; use {', '.join(COMPONENTS)} or all.[/]"
         )
         raise typer.Exit(2)
     return [selected]
+
+
+def _check_agent_component() -> None:
+    """The agent service needs the agent settings (no database, no search index)."""
+    try:
+        from mynotes.config import get_settings
+
+        agent = get_settings().agent
+        ready = (
+            agent is not None and agent.token is not None and Path(agent.path).expanduser().is_dir()
+        )
+    except Exception:
+        ready = False
+    if not ready:
+        console.print(
+            "[red]No agent settings for this machine; run 'mynotes agent setup' first.[/]"
+        )
+        raise typer.Exit(1)
 
 
 @service_app.command("install")
@@ -930,8 +952,10 @@ def service_install(
     ),
     component: str = _COMPONENT_OPTION,
 ) -> None:
-    """Install the autostart definition of the worker and/or the web interface."""
+    """Install the autostart definition of the worker, the web interface or the agent."""
     for name in _components(component):
+        if name == "agent":
+            _check_agent_component()
         spec, backend = _service_parts(name)
         rendered = backend.render(spec)
         if dry_run:
@@ -946,6 +970,11 @@ def service_install(
             console.print(f"[red]Service install failed: {type(exc).__name__}: {exc}[/]")
             raise typer.Exit(1) from exc
         console.print(f"[green]Service '{spec.name}' installed.[/]")
+        if name == "agent":
+            console.print(
+                f"It reads the settings of {spec.working_dir / 'mynotes.yaml'} (and a .env there); "
+                "the MYNOTES_AGENT_* variables of your shell are not seen by a service."
+            )
         for hint in backend.hints(spec):
             console.print(hint, markup=False)
 
@@ -998,7 +1027,9 @@ def _tail_follow(path: Path) -> None:
 def service_logs(component: str = _LOG_COMPONENT_OPTION) -> None:
     """Follow one service's logs (prints the platform hint on Linux)."""
     if component == "all":
-        console.print("[red]--component all is not supported for logs; pick worker or web.[/]")
+        console.print(
+            "[red]--component all is not supported for logs; pick worker, web or agent.[/]"
+        )
         raise typer.Exit(2)
     spec, backend = _service_parts(component)
     log_file = spec.log_dir / spec.log_name
@@ -2345,7 +2376,7 @@ def agent_sync() -> None:
     settings = _agent_settings()
     try:
         report = sync_once(settings)
-    except (AgentAuthError, ServerError, OSError) as exc:
+    except (AgentAuthError, ServerError, OSError, httpx.HTTPError) as exc:
         console.print(f"[red]{exc}[/]")
         raise typer.Exit(1) from exc
     console.print(
@@ -2367,12 +2398,176 @@ def agent_status() -> None:
     sync = build_sync(settings)
     try:
         data = sync.client.status()
-    except (AgentAuthError, ServerError, OSError) as exc:
+    except (AgentAuthError, ServerError, OSError, httpx.HTTPError) as exc:
         console.print(f"[red]{exc}[/]")
         raise typer.Exit(1) from exc
     finally:
         sync.client.close()
     console.print_json(json.dumps(data, default=str))
+
+
+_AGENT_ENV = {
+    "server_url": "MYNOTES_AGENT_SERVER_URL",
+    "token": "MYNOTES_AGENT_TOKEN",
+    "root": "MYNOTES_AGENT_ROOT",
+    "path": "MYNOTES_AGENT_PATH",
+}
+
+
+@agent_app.command("setup")
+def agent_setup(
+    server_url: str | None = typer.Option(
+        None, "--server-url", envvar="MYNOTES_AGENT_SERVER_URL", help="https://notes.example.org"
+    ),
+    token: str | None = typer.Option(
+        None, "--token", envvar="MYNOTES_AGENT_TOKEN", help="The agent token (mn_...)."
+    ),
+    root: str | None = typer.Option(
+        None, "--root", envvar="MYNOTES_AGENT_ROOT", help="The remote root this machine feeds."
+    ),
+    path: str | None = typer.Option(
+        None, "--path", envvar="MYNOTES_AGENT_PATH", help="The notes folder on this machine."
+    ),
+    verify: bool = typer.Option(
+        True, "--verify/--no-verify", help="Check the settings against the server first."
+    ),
+    show: bool = typer.Option(False, "--show", help="Print the settings in use and exit."),
+) -> None:
+    """Store the agent's settings (server, token, root, folder) in the user config file.
+
+    Asks for what is not given as an option or MYNOTES_AGENT_* variable, checks
+    the settings against the server, then writes the agent: section of the user
+    config file (mode 600: the token is inside). The variables keep overriding it.
+    """
+    from mynotes import __version__
+    from mynotes.agent.client import AgentAuthError, ServerError
+    from mynotes.agent.setup import (
+        AgentSetupError,
+        config_target_path,
+        current_agent_block,
+        normalise_path,
+        normalise_server_url,
+        verify_agent,
+        write_agent_settings,
+    )
+
+    if show:
+        _agent_show()
+        return
+    target = config_target_path()
+    current = current_agent_block(target)
+    interactive = sys.stdin.isatty()
+    console.print("mynotes agent setup: the thin agent of server mode.")
+    console.print(f"Settings go to {target} (the agent: section; other sections are kept).\n")
+
+    def ask(label: str, given: str | None, key: str, *, hidden: bool = False) -> str:
+        if given:
+            return given
+        existing = current.get(key)
+        if hidden:
+            if existing:
+                answer = typer.prompt(
+                    f"{label} (Enter keeps the current one)",
+                    hide_input=True,
+                    default="",
+                    show_default=False,
+                )
+                return answer or str(existing)
+            return typer.prompt(f"{label} (not shown)", hide_input=True)
+        if existing is not None:
+            return typer.prompt(label, default=str(existing))
+        return typer.prompt(label)
+
+    try:
+        url = normalise_server_url(ask("Server URL", server_url, "server_url"))
+        secret = ask("Agent token", token, "token", hidden=True).strip()
+        root_name = ask("Root name", root, "root").strip()
+        while True:
+            try:
+                folder = normalise_path(ask("Notes folder", path, "path"))
+                break
+            except AgentSetupError as exc:
+                if path is not None or not interactive:
+                    raise
+                console.print(f"[red]{exc}[/]")
+    except AgentSetupError as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(2) from exc
+    if not secret or not root_name:
+        console.print("[red]The token and the root name cannot be empty.[/]")
+        raise typer.Exit(2)
+
+    if verify:
+        console.print(f"Checking {url}, root '{root_name}'... ", end="")
+        retry = (
+            "Nothing was written. Run 'mynotes agent setup' again, or add --no-verify to save "
+            "without checking."
+        )
+        try:
+            status = verify_agent(url, secret, root_name)
+        except AgentAuthError as exc:
+            console.print(f"[red]failed[/]\n[red]{exc}[/]\n{retry}")
+            raise typer.Exit(1) from exc
+        except (ServerError, OSError, httpx.HTTPError) as exc:
+            console.print(f"[red]failed[/]\n[red]Could not reach {url}: {exc}[/]\n{retry}")
+            raise typer.Exit(1) from exc
+        console.print("[green]ok[/]")
+        server_version = status.get("server_version")
+        files = sum(int(n) for n in (status.get("files") or {}).values())
+        if server_version is None:
+            versions = f"server version unknown (older server), this agent {__version__}"
+        elif server_version != __version__:
+            versions = f"[yellow]server {server_version}, this agent {__version__}[/]"
+        else:
+            versions = f"server {server_version}, this agent {__version__}"
+        console.print(f"  {versions}; {files} file(s) known to the server")
+
+    try:
+        write_agent_settings(
+            target,
+            {"server_url": url, "token": secret, "root": root_name, "path": str(folder)},
+        )
+    except (AgentSetupError, OSError) as exc:
+        console.print(f"[red]Could not write {target}: {exc}[/]")
+        raise typer.Exit(1) from exc
+    mode = (
+        "mode 600: the token is inside, keep it private"
+        if sys.platform != "win32"
+        else ("the token is inside, keep it private")
+    )
+    console.print(f"Wrote {target} ({mode}).")
+    for key, variable in _AGENT_ENV.items():
+        if os.environ.get(variable):
+            console.print(
+                f"[yellow]{variable} is set in your environment and overrides the saved {key}.[/]"
+            )
+    from mynotes.config import _resolve_yaml_path
+
+    effective = _resolve_yaml_path()
+    if effective is not None and effective.resolve() != target.resolve():
+        console.print(
+            f"[yellow]Note: from this folder mynotes reads {effective}, not the file just written; "
+            "run the agent from another folder or set MYNOTES_CONFIG.[/]"
+        )
+    console.print(
+        "\nNext:\n"
+        "  mynotes agent sync                        one full upload now\n"
+        "  mynotes agent run                         sync, then watch the folder until stopped\n"
+        "  mynotes service install --component agent start it at every login"
+    )
+
+
+def _agent_show() -> None:
+    """``agent setup --show``: the settings file in use and the agent block (token masked)."""
+    from mynotes.config import _resolve_yaml_path, get_settings
+
+    settings_file = _resolve_yaml_path()
+    console.print(f"Settings file: {settings_file if settings_file is not None else '(none)'}")
+    block = get_settings().redacted_dict().get("agent")
+    if not block:
+        console.print("[red]No agent settings; run 'mynotes agent setup'.[/]")
+        raise typer.Exit(1)
+    console.print(_kv_table(list(block.items())))
 
 
 root_app = typer.Typer(

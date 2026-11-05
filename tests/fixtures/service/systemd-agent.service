@@ -1,0 +1,14 @@
+[Unit]
+Description=mynotes agent (feeds a remote root of a mynotes server)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/test/.config/mynotes
+ExecStart=/home/test/.local/share/uv/tools/mynotes/bin/python -m mynotes agent run
+Restart=on-failure
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target
