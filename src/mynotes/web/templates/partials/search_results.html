@@ -3,6 +3,7 @@
 <ol class="hits">
   {% for item in items %}
   <li class="hit">
+    {% if item.match is not none %}<span class="hit-match" title="How closely this passage matches your query, as judged by the reranker">{{ item.match }}% match</span>{% endif %}
     <div class="hit-snippet md">{{ item.snippet }}</div>
     {% if item.section %}<p class="hit-section">{{ item.section }}</p>{% endif %}
     {{ cite(item, can_open_files, remote_ids) }}

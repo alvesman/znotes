@@ -16,6 +16,7 @@ both indices are always rebuildable from Postgres (``mynotes index rebuild``).
 from __future__ import annotations
 
 import logging
+import re
 import shutil
 import subprocess
 from datetime import UTC, datetime, timedelta
@@ -637,6 +638,74 @@ def retry_failed_extractions(
             queued += job_id is not None
         logger.info("queued extract again for %d of %d failed versions", queued, len(version_ids))
     return {"failed": len(version_ids), "queued": queued}
+
+
+_HASH_TITLE_RE = re.compile(r"^[0-9a-f]{64}$", re.IGNORECASE)
+
+
+def retitle_hash_titled_documents(
+    session: Session, settings: Settings, *, dry_run: bool = False
+) -> dict[str, int]:
+    """Give uploaded notes titled by their content hash the title of their file name.
+
+    Before 0.4.0rc18 the extractor's title fallback used the name of the file
+    it read, which for a remote root is the blob named by its blake3 hash, so
+    a note without a frontmatter title or a level-1 heading was titled by 64
+    hex characters. This rewrites such titles from the note's own file name
+    (``humanize_filename``), updates the stored IR and queues a metadata
+    reindex per document, so search results and citations show the new title
+    without re-extracting or re-embedding anything.
+
+    Args:
+        session: Open session/transaction; the caller commits.
+        settings: Application settings (the workspace name).
+        dry_run: Count the documents without changing anything.
+
+    Returns:
+        ``{"found": <documents with a hash title>, "fixed": <rewritten>}``.
+    """
+    from mynotes.extract.titles import humanize_filename
+    from mynotes.text.normalize import normalize_key
+
+    rows = session.execute(
+        select(Document, File.rel_path)
+        .join(File, File.id == Document.current_file_id)
+        .join(SourceRoot, SourceRoot.id == Document.source_root_id)
+        .join(Workspace, Workspace.id == SourceRoot.workspace_id)
+        .where(
+            Workspace.name == settings.workspace,
+            SourceRoot.kind == "remote",
+            Document.status != "deleted",
+            Document.title.op("~*")(_HASH_TITLE_RE.pattern),
+        )
+        .order_by(Document.id)
+    ).all()
+    fixed = 0
+    for document, rel_path in rows:
+        title = humanize_filename(rel_path.rsplit("/", 1)[-1])
+        if not title or dry_run:
+            continue
+        document.title = title
+        document.title_norm = normalize_key(title)
+        document.updated_at = datetime.now(UTC)
+        version = (
+            session.get(DocumentVersion, document.latest_version_id)
+            if document.latest_version_id is not None
+            else None
+        )
+        if version is not None and isinstance(version.ir_json, dict):
+            version.ir_json = {**version.ir_json, "title": title}
+        enqueue(
+            session,
+            "reindex_metadata",
+            {"document_id": int(document.id)},
+            dedupe_key=f"reindex_metadata:{int(document.id)}",
+            priority=Priority.EMBED,
+        )
+        fixed += 1
+    if not dry_run:
+        logger.info("retitled %d of %d hash-titled uploaded document(s)", fixed, len(rows))
+    return {"found": len(rows), "fixed": fixed}
 
 
 def run_maintenance(settings: Settings, *, dry_run: bool = False) -> dict[str, dict[str, int]]:

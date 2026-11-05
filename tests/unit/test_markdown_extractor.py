@@ -139,3 +139,15 @@ def test_horizontal_rule_start_is_not_front_matter(tmp_path: Path) -> None:
     note.write_text("---\nSome *emphasis* and a [link](x)\n\nMore.\n", encoding="utf-8")
     document = MarkdownExtractor().extract(note)
     assert "More." in document.plain_text()
+
+
+def test_filename_overrides_the_title_fallback(tmp_path: Path) -> None:
+    """A remote root's blob is named by its hash: the note's own name titles it."""
+    blob = tmp_path / ("ab" * 32 + ".md")
+    blob.write_text("Just a paragraph, no heading.\n", encoding="utf-8")
+    assert MarkdownExtractor().extract(blob).title == "Ab" * 1 + "ab" * 31
+    document = MarkdownExtractor().extract(blob, filename="Portainer.md")
+    assert document.title == "Portainer"
+    empty = tmp_path / ("cd" * 32 + ".txt")
+    empty.write_text("", encoding="utf-8")  # plain text titles by its first line, if any
+    assert TextExtractor().extract(empty, filename="my_notes-v2.txt").title == "My notes v2"

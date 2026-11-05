@@ -91,7 +91,7 @@ class MarkdownExtractor:
     version = "1"
     formats = ("md",)
 
-    def extract(self, path: Path) -> IRDocument:
+    def extract(self, path: Path, *, filename: str | None = None) -> IRDocument:
         """Extract a Markdown file into the common IR.
 
         Args:
@@ -116,10 +116,12 @@ class MarkdownExtractor:
             warnings=warnings,
         )
         document.language = detect_language(document.plain_text())
-        document.title = resolve_title(frontmatter=meta, blocks=blocks, filename=path.name)
+        document.title = resolve_title(
+            frontmatter=meta, blocks=blocks, filename=filename or path.name
+        )
         document.doc_date = resolve_doc_date(
             frontmatter=meta,
-            filename=path.name,
+            filename=filename or path.name,
             metadata_date=None,
             mtime_ns=path.stat().st_mtime_ns,
         )
@@ -133,7 +135,7 @@ class TextExtractor:
     version = "1"
     formats = ("txt",)
 
-    def extract(self, path: Path) -> IRDocument:
+    def extract(self, path: Path, *, filename: str | None = None) -> IRDocument:
         """Extract a plain-text file into the common IR.
 
         Args:
@@ -156,7 +158,7 @@ class TextExtractor:
         title = first_line if first_line and len(first_line) < _MIN_TITLE_LENGTH else None
         document = IRDocument(
             blocks=blocks,
-            title=title if title is not None else humanize_filename(path.name),
+            title=title if title is not None else humanize_filename(filename or path.name),
             extractor=self.name,
             extractor_version=self.version,
             warnings=warnings,
@@ -164,7 +166,7 @@ class TextExtractor:
         document.language = detect_language(document.plain_text())
         document.doc_date = resolve_doc_date(
             frontmatter={},
-            filename=path.name,
+            filename=filename or path.name,
             metadata_date=None,
             mtime_ns=path.stat().st_mtime_ns,
         )

@@ -227,6 +227,7 @@ The **Tags** section at the bottom lists the tags that are in use, most used fir
 
 Up to 20 results are found, best first. With **rerank** ticked (the default), results that score far below the best one (under 5% of its score) are hidden behind a **Show N weaker results** line at the end: a search for a word that only one note contains shows that note, not twenty loosely related ones. Click the line to see the rest. Without rerank, all results are shown. Each result shows:
 
+- a **match** percentage in the top-right corner (with **rerank** ticked): how closely the passage matches what you typed, as judged by the reranker. The semantic half of the search always returns the nearest passages even when nothing really matches, so a page of results with low numbers means mynotes found nothing better, not that these notes answer the question;
 - an **excerpt** of the matching passage, formatted like chat answers (lists, tables, code blocks, bold and italic text), though cut at about 300 characters, so a long code block or table may end abruptly (a cut code block has no Copy button; open the note for the full text);
 - the **section** it belongs to, when the document has headings;
 - the **source line**: title, path, page or slide, date, the **historical** label for older versions, and the same open links as in [Chat](#reading-the-answer);

@@ -26,6 +26,7 @@ from mynotes.db.models import (
     AclGrant,
     ApiToken,
     Document,
+    DocumentVersion,
     EmbeddingCache,
     File,
     IndexOutbox,
@@ -326,6 +327,39 @@ def test_manifest_upload_search_rename_delete(env: Env) -> None:
     status = client.get("/v1/roots/alice-notes/status", headers=headers).json()
     assert status["files"]["active"] == 1 and status["agent_info"]["hostname"] == "laptop"
     assert status["agent_last_seen_at"] is not None
+
+
+def test_uploaded_note_without_heading_is_titled_by_its_name(env: Env) -> None:
+    """The blob is named by its hash; the title still comes from the note's file name."""
+    from mynotes.jobs.maintenance import retitle_hash_titled_documents
+
+    assert _upload(env, "setup/portainer-notes.md", "docker run -d portainer\n")["action"] == "new"
+    _drain(env)
+    with session_scope() as session:
+        document = session.execute(
+            select(Document).where(Document.source_root_id == env.root_id)
+        ).scalar_one()
+        assert document.title == "Portainer notes"
+        document_id = int(document.id)
+
+        # A title stored by the old fallback (the hash) is repaired by the maintenance command.
+        document.title = "ab" * 32
+        session.flush()
+        assert retitle_hash_titled_documents(session, env.settings, dry_run=True) == {
+            "found": 1,
+            "fixed": 0,
+        }
+        assert retitle_hash_titled_documents(session, env.settings) == {"found": 1, "fixed": 1}
+        assert document.title == "Portainer notes" and document.title_norm == "portainer notes"
+        version = session.get(DocumentVersion, document.latest_version_id)
+        assert version is not None and version.ir_json["title"] == "Portainer notes"
+        queued = session.execute(
+            select(Job).where(
+                Job.type == "reindex_metadata", Job.dedupe_key == f"reindex_metadata:{document_id}"
+            )
+        ).scalar_one_or_none()
+        assert queued is not None
+        assert retitle_hash_titled_documents(session, env.settings) == {"found": 0, "fixed": 0}
 
 
 def test_a_token_for_another_root_is_refused(env: Env) -> None:

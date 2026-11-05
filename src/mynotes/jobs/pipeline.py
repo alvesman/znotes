@@ -217,7 +217,8 @@ def handle_extract(payload: dict[str, Any], context: JobContext) -> None:
             return
         try:
             extractor = get_extractor(document.format)
-            ir = extractor.extract(path)
+            # A remote root's blob is named by its hash: the title fallback needs the real name.
+            ir = extractor.extract(path, filename=file_row.rel_path.rsplit("/", 1)[-1])
         except OSError:
             raise
         except Exception as exc:

@@ -17,8 +17,9 @@
   }
 
   /* Markdown for answers, built from DOM nodes only (no innerHTML): headings, paragraphs,
-     bullet/numbered lists (nested by indentation), tables, block quotes, code blocks, bold,
-     italic, inline code, and [n] source markers linked to the citation list. Raw HTML in the
+     bullet/numbered lists (nested by indentation, "loose" with blank lines between items,
+     with paragraphs and code blocks inside items, numbered as written), tables, block quotes,
+     code blocks, bold, italic, inline code, and [n] source markers linked to the citation list. Raw HTML in the
      text stays text, and no other links are created. */
   var INLINE_SOURCE = /(`[^`\n]+`)|(\*\*[^*\n]+?\*\*|__[^_\n]+?__)|(\*[^*\s][^*\n]*?\*|(?:^|\W)_[^_\s][^_\n]*?_(?=\W|$))|(\[\d+\])/;
 
@@ -119,6 +120,31 @@
 
   var LIST_ITEM = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
   var TABLE_RULE = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
+  var FENCE = /^(\s*)```/;
+
+  // A fenced code block starting at lines[i]; the closing fence may be indented like the
+  // opening one (a block inside a list item). Returns the index after the block.
+  function renderFence(lines, i, parent) {
+    var fenceIndent = FENCE.exec(lines[i])[1].length;
+    var code = [];
+    i += 1;
+    while (i < lines.length && !FENCE.test(lines[i])) {
+      // the block's own indentation (inside a list item) is not part of the code
+      code.push(lines[i].slice(Math.min(fenceIndent, lines[i].search(/\S|$/))));
+      i += 1;
+    }
+    var closed = i < lines.length; // an unfinished block (still streaming) gets no button
+    i += 1;
+    var wrap = el("div", "code-block");
+    var pre = el("pre");
+    pre.appendChild(el("code", null, code.join("\n")));
+    wrap.appendChild(pre);
+    if (closed) {
+      wrap.appendChild(copyButton(code.join("\n")));
+    }
+    parent.appendChild(wrap);
+    return i;
+  }
 
   function renderMarkdown(text, root) {
     root.textContent = "";
@@ -129,23 +155,8 @@
       var m;
       if (!line.trim()) {
         i += 1;
-      } else if (/^\s*```/.test(line)) {
-        var code = [];
-        i += 1;
-        while (i < lines.length && !/^\s*```/.test(lines[i])) {
-          code.push(lines[i]);
-          i += 1;
-        }
-        var closed = i < lines.length; // an unfinished block (still streaming) gets no button
-        i += 1;
-        var wrap = el("div", "code-block");
-        var pre = el("pre");
-        pre.appendChild(el("code", null, code.join("\n")));
-        wrap.appendChild(pre);
-        if (closed) {
-          wrap.appendChild(copyButton(code.join("\n")));
-        }
-        root.appendChild(wrap);
+      } else if (FENCE.test(line)) {
+        i = renderFence(lines, i, root);
       } else if ((m = /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line))) {
         var heading = el("h" + Math.min(m[1].length + 2, 6));
         heading.className = "answer-heading";
@@ -212,14 +223,49 @@
 
   function renderList(lines, start, root) {
     var i = start;
-    var stack = []; // {indent, list, item}
+    var stack = []; // {indent, list, item, ordered, para, broke}
     while (i < lines.length) {
-      var m = LIST_ITEM.exec(lines[i]);
+      var line = lines[i];
+      var m = LIST_ITEM.exec(line);
+      var top = stack.length ? stack[stack.length - 1] : null;
       if (!m) {
-        // a wrapped continuation line of the last item (indented text), else the list ends
-        if (lines[i].trim() && /^\s{2,}\S/.test(lines[i]) && stack.length) {
-          var current = stack[stack.length - 1].item;
-          current.appendChild(document.createTextNode(" " + lines[i].trim()));
+        if (!line.trim()) {
+          // A blank line ends the list unless an item or indented text follows (a "loose"
+          // list, the usual shape of a step-by-step answer); the next text starts a paragraph.
+          var j = i + 1;
+          while (j < lines.length && !lines[j].trim()) {
+            j += 1;
+          }
+          if (top && j < lines.length && (LIST_ITEM.test(lines[j]) || /^\s{2,}\S/.test(lines[j]))) {
+            top.broke = true;
+            top.para = null;
+            i = j;
+            continue;
+          }
+          break;
+        }
+        if (top && top.item && FENCE.test(line) && /^\s/.test(line)) {
+          // an indented code block belongs to the item (a bare one ends the list)
+          i = renderFence(lines, i, top.item);
+          top.broke = true;
+          top.para = null;
+          continue;
+        }
+        if (top && top.item && /^\s{2,}\S/.test(line)) {
+          // indented text: a wrapped continuation of the item, or a paragraph of its own
+          // after a blank line (or a code block)
+          if (top.broke) {
+            if (!top.para) {
+              top.para = el("p");
+              top.item.appendChild(top.para);
+            } else {
+              top.para.appendChild(document.createTextNode(" "));
+            }
+            inline(line.trim(), top.para);
+          } else {
+            top.item.appendChild(document.createTextNode(" "));
+            inline(line.trim(), top.item);
+          }
           i += 1;
           continue;
         }
@@ -239,12 +285,21 @@
       }
       if (!stack.length || indent > stack[stack.length - 1].indent) {
         var list = el(ordered ? "ol" : "ul");
+        if (ordered) {
+          // numbering as written: steps resumed after a code block or a paragraph keep counting
+          var number = parseInt(m[2], 10);
+          if (number > 1) {
+            list.start = number;
+          }
+        }
         var parent = stack.length ? stack[stack.length - 1].item : root;
         parent.appendChild(list);
-        stack.push({ indent: indent, list: list, item: null, ordered: ordered });
+        stack.push({ indent: indent, list: list, item: null, ordered: ordered, para: null, broke: false });
       }
-      var top = stack[stack.length - 1];
+      top = stack[stack.length - 1];
       top.item = el("li");
+      top.para = null;
+      top.broke = false;
       inline(m[3], top.item);
       top.list.appendChild(top.item);
       i += 1;

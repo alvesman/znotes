@@ -2240,6 +2240,35 @@ def maintenance_run(
     console.print(table)
 
 
+@maintenance_app.command("retitle")
+def maintenance_retitle(
+    dry_run: bool = typer.Option(False, "--dry-run", help="Count the documents only."),
+) -> None:
+    """Give uploaded notes titled by a content hash the title of their file name.
+
+    Server mode only: before 0.4.0rc18 a note fed by an agent without a title
+    or a first heading was titled by its 64-character hash. The worker then
+    refreshes the search index in the background; nothing is re-extracted.
+    """
+    from mynotes.config import get_settings
+    from mynotes.db.session import session_scope
+    from mynotes.jobs.maintenance import retitle_hash_titled_documents
+
+    try:
+        with session_scope() as session:
+            report = retitle_hash_titled_documents(session, get_settings(), dry_run=dry_run)
+    except Exception as exc:
+        console.print(f"[red]retitle failed: {exc}[/]")
+        raise typer.Exit(1) from exc
+    if dry_run:
+        console.print(f"{report['found']} uploaded document(s) titled by a content hash.")
+    else:
+        console.print(
+            f"Retitled {report['fixed']} of {report['found']} document(s); the worker refreshes "
+            "the index."
+        )
+
+
 @maintenance_app.command("retry-extract")
 def maintenance_retry_extract(
     dry_run: bool = typer.Option(False, "--dry-run", help="Count the failed versions only."),

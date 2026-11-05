@@ -322,7 +322,7 @@ class PdfExtractor:
     version = "1"
     formats = ("pdf",)
 
-    def extract(self, path: Path) -> IRDocument:
+    def extract(self, path: Path, *, filename: str | None = None) -> IRDocument:
         """Extract a PDF into the common IR, one block list per page.
 
         Opens the document once and always closes it. When the whole document
@@ -397,12 +397,12 @@ class PdfExtractor:
         result.title = resolve_title(
             frontmatter={},
             blocks=blocks,
-            filename=path.name,
+            filename=filename or path.name,
             largest_font_line=largest_font_line,
         )
         result.doc_date = resolve_doc_date(
             frontmatter={},
-            filename=path.name,
+            filename=filename or path.name,
             metadata_date=metadata_date,
             mtime_ns=path.stat().st_mtime_ns,
         )

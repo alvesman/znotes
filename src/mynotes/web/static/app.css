@@ -797,6 +797,7 @@ fieldset.tag-filter {
 }
 
 .hit {
+  position: relative; /* anchors .hit-match */
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
@@ -817,6 +818,25 @@ fieldset.tag-filter {
   color: var(--fg-muted);
   font-size: var(--fs-sm);
   margin: 0.15rem 0;
+}
+
+/* The reranker's relevance of a search hit, in the hit's top-right corner */
+.hit-match {
+  position: absolute;
+  top: var(--sp-2);
+  right: var(--sp-3);
+  padding: 0 0.45em;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--fg-muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.hit:has(.hit-match) .hit-snippet {
+  padding-right: 5.5rem;
 }
 
 /* Search: results far below the best rerank score, collapsed (routes.split_weak_hits) */

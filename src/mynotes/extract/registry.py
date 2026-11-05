@@ -32,8 +32,15 @@ class Extractor(Protocol):
     version: str
     formats: tuple[str, ...]
 
-    def extract(self, path: Path) -> IRDocument:
-        """Extract one file into the common IR."""
+    def extract(self, path: Path, *, filename: str | None = None) -> IRDocument:
+        """Extract one file into the common IR.
+
+        Args:
+            path: The file to read.
+            filename: The document's own file name, when ``path`` is not it
+                (a blob of a remote root is named by its hash); it feeds the
+                title fallback.
+        """
         ...
 
 

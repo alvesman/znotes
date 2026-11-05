@@ -81,7 +81,7 @@ class OfficeExtractor:
     version = "1"
     formats = ("docx", "pptx", "xlsx", "html", "epub")
 
-    def extract(self, path: Path) -> IRDocument:
+    def extract(self, path: Path, *, filename: str | None = None) -> IRDocument:
         """Extract an Office/HTML/EPUB file into the common IR.
 
         Args:
@@ -130,13 +130,13 @@ class OfficeExtractor:
         document.title = resolve_title(
             frontmatter={},
             blocks=blocks,
-            filename=path.name,
+            filename=filename or path.name,
             first_slide_title=first_slide_title,
             metadata_title=metadata_title,
         )
         document.doc_date = resolve_doc_date(
             frontmatter={},
-            filename=path.name,
+            filename=filename or path.name,
             metadata_date=metadata_date,
             mtime_ns=path.stat().st_mtime_ns,
         )

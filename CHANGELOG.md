@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.0rc18 (2026-11-05, preview of server mode)
+
+- **Search:** each result shows how closely it matches the query, as a percentage from the
+  reranker (hidden when the reranker is off). Results that only got there because the
+  semantic half always returns its nearest neighbours now say so with a low number.
+- **Chat:** answers with steps that contain commands render properly: code blocks and
+  paragraphs inside numbered or bulleted items, lists with blank lines between items, and
+  numbering that continues after a code block instead of restarting at 1.
+- **Server mode:** a note fed by an agent that has neither a frontmatter `title` nor a first-level
+  heading is titled by its file name again, not by its 64-character content hash (the worker
+  extracts the server's copy, which is named by the hash). New `mynotes maintenance retitle`
+  repairs the titles already stored and refreshes the index without re-extracting.
+
 ## 0.4.0rc17 (2026-11-05, preview of server mode)
 
 - **Search:** the folder filter (the **Folder** box, `in:folder`, `--in`) now matches a folder

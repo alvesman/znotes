@@ -346,6 +346,21 @@ def test_far_weaker_search_results_are_collapsed(monkeypatch: pytest.MonkeyPatch
     assert html.count('class="hit"') == 3
     assert html.index('class="weak-hits"') > html.rindex('href="/ui/documents/1')
     assert "Show 1 weaker result</summary>" in html
+    # each hit shows the reranker's relevance as a percentage
+    assert html.count("% match</span>") == 3
+    assert ">84% match<" in html and ">79% match<" in html and ">0% match<" in html
+
+    monkeypatch.setattr(service, "search", lambda *args, **kwargs: _result(plain))
+    without = _client().post("/ui/partials/search", data={"query": "portainer"}).text
+    assert "% match" not in without  # no reranker, no number
+
+
+def test_match_percent_rounds_and_clamps() -> None:
+    from mynotes.web.routes import match_percent
+
+    assert match_percent(None) is None
+    assert match_percent(0.844) == 84 and match_percent(0.002) == 0 and match_percent(1.0) == 100
+    assert match_percent(-3.2) == 0 and match_percent(7.5) == 100  # a logit-scale reranker
 
 
 def _chat_record(**overrides: object):

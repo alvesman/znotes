@@ -261,7 +261,20 @@ def _hit_item(hit: SearchHit) -> dict[str, Any]:
         "format": hit.format,
         "snippet": hit.text[:_SNIPPET_CHARS],
         "tags": list(hit.tags),
+        "match": match_percent(hit.rerank_score),
     }
+
+
+def match_percent(rerank_score: float | None) -> int | None:
+    """The reranker's relevance as a whole percentage, or None without a reranker.
+
+    Rerankers answer a probability-like score in [0, 1]; anything outside is
+    clamped, so a model that scores on another scale still shows something
+    sensible instead of a negative or a thousand percent.
+    """
+    if rerank_score is None:
+        return None
+    return round(100 * min(1.0, max(0.0, rerank_score)))
 
 
 @router.get("/chat")

@@ -953,6 +953,19 @@ uv run mynotes maintenance retry-extract
 The worker then extracts them in the background. In server mode run it through the worker
 container: `docker compose exec worker mynotes maintenance retry-extract`.
 
+### Repairing hash titles of uploaded notes (server mode)
+
+Before 0.4.0rc18, a note fed by an agent that had neither a `title` in its frontmatter nor a
+first-level heading was titled by its 64-character content hash. Once the server runs a newer
+version, give those notes the title of their file name:
+
+```bash
+docker compose exec worker mynotes maintenance retitle --dry-run    # how many are affected
+docker compose exec worker mynotes maintenance retitle
+```
+
+The worker refreshes the search index in the background; nothing is extracted or embedded again.
+
 ### Backups
 
 ```bash
