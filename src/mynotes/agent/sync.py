@@ -15,7 +15,7 @@ from mynotes.config import AgentConfig, ScanConfig
 from mynotes.scan.hashing import FileLockedError, hash_file
 from mynotes.scan.ignore import IgnoreRules
 from mynotes.scan.walker import FileStat, stat_paths, walk_root
-from mynotes.scan.watch import HintBatch
+from mynotes.scan.watch import HintBatch, defer_retry
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +29,13 @@ class SyncReport:
     uploaded: int = 0
     failed: list[str] = field(default_factory=list)
     counts: dict[str, int] = field(default_factory=dict)
-    skipped_unsettled: int = 0
+    unsettled: list[str] = field(default_factory=list)
     skipped_large: int = 0
+
+    @property
+    def skipped_unsettled(self) -> int:
+        """How many files were still being written (listed without a hash)."""
+        return len(self.unsettled)
 
 
 class AgentSync:
@@ -76,14 +81,20 @@ class AgentSync:
     # -- listing --------------------------------------------------------------
 
     def _entry(self, stat: FileStat) -> dict[str, Any] | None:
-        """A manifest entry for one file, hashing it unless the cache knows it."""
-        if stat.placeholder:
+        """A manifest entry for one file, hashing it unless the cache knows it.
+
+        A placeholder or a file still being written is listed without a hash
+        (``placeholder`` / ``unsettled``), so the server keeps what it has
+        instead of taking the path for gone.
+        """
+        if stat.placeholder or not stat.settled:
             return {
                 "rel_path": stat.rel_path,
                 "size": stat.size,
                 "mtime_ns": stat.mtime_ns,
                 "blake3": None,
-                "placeholder": True,
+                "placeholder": stat.placeholder,
+                "unsettled": not stat.settled,
             }
         digest = self.cache.get(stat.rel_path, stat.size, stat.mtime_ns)
         if digest is None:
@@ -99,10 +110,11 @@ class AgentSync:
             "mtime_ns": stat.mtime_ns,
             "blake3": digest,
             "placeholder": False,
+            "unsettled": False,
         }
 
-    def list_all(self) -> tuple[list[dict[str, Any]], int]:
-        """Every file of the folder as manifest entries; unsettled files are left out."""
+    def list_all(self) -> tuple[list[dict[str, Any]], list[str]]:
+        """Every file of the folder as manifest entries, plus the paths still being written."""
         return self._entries_for(
             walk_root(
                 self.path,
@@ -112,27 +124,28 @@ class AgentSync:
             )
         )
 
-    def list_paths(self, rel_paths: Sequence[str]) -> tuple[list[dict[str, Any]], int]:
-        """The given paths that exist, as manifest entries."""
+    def list_paths(self, rel_paths: Sequence[str]) -> tuple[list[dict[str, Any]], list[str]]:
+        """The given paths that exist, as manifest entries, plus the ones still being written."""
         stats, _missing = stat_paths(
             self.path, rel_paths, self.rules, settle_seconds=self.agent.settle_seconds
         )
         return self._entries_for(stats)
 
-    def _entries_for(self, stats: Iterable[FileStat]) -> tuple[list[dict[str, Any]], int]:
+    def _entries_for(self, stats: Iterable[FileStat]) -> tuple[list[dict[str, Any]], list[str]]:
+        """Manifest entries for ``stats``; returns them with the unsettled paths among them."""
         entries: list[dict[str, Any]] = []
-        unsettled = 0
+        unsettled: list[str] = []
         self._last_skipped_large = 0
         for stat in stats:
-            if not stat.settled:
-                unsettled += 1
-                continue
-            if self._too_large(stat):
+            if stat.settled and self._too_large(stat):
                 self._last_skipped_large += 1
                 continue
             entry = self._entry(stat)
-            if entry is not None:
-                entries.append(entry)
+            if entry is None:
+                continue
+            entries.append(entry)
+            if entry["unsettled"]:
+                unsettled.append(stat.rel_path)
         self.cache.save()
         return entries, unsettled
 
@@ -144,7 +157,7 @@ class AgentSync:
         report = SyncReport(
             scope="full",
             listed=len(entries),
-            skipped_unsettled=unsettled,
+            unsettled=unsettled,
             skipped_large=self._last_skipped_large,
         )
         answer = self.client.manifest(entries, scope="full")
@@ -159,7 +172,7 @@ class AgentSync:
         report = SyncReport(
             scope="paths",
             listed=len(entries),
-            skipped_unsettled=unsettled,
+            unsettled=unsettled,
             skipped_large=self._last_skipped_large,
         )
         answer = self.client.manifest(entries, scope="paths", paths=paths)
@@ -168,9 +181,28 @@ class AgentSync:
         return report
 
     def handle_batch(self, batch: HintBatch) -> None:
-        """The watcher's callback: an overflow means a full sync, else the changed paths."""
+        """The watcher's callback: an overflow means a full sync, else the changed paths.
+
+        Files still being written are listed as ``unsettled`` (the server keeps
+        what it has) and re-synced once they have had ``settle_seconds`` to
+        settle, like the local watcher does; without that, a note saved
+        several times in a row would never reach the server, because the last
+        save brings no further event.
+        """
         report = self.full_sync() if batch.overflow else self.sync_paths(sorted(batch.rel_paths))
         _log_report(report)
+        if report.unsettled:
+            delay_s = self.agent.settle_seconds + 1.0
+            logger.info(
+                "%d file(s) still being written; re-syncing in %.0fs",
+                len(report.unsettled),
+                delay_s,
+            )
+            defer_retry(
+                HintBatch(batch.root_id, set(report.unsettled)),
+                delay_s=delay_s,
+                handler=self.handle_batch,
+            )
         if report.failed:
             raise RuntimeError(f"{len(report.failed)} upload(s) failed")  # the watcher retries
 
@@ -207,13 +239,13 @@ class AgentSync:
 
 def _log_report(report: SyncReport) -> None:
     logger.info(
-        "sync (%s): %d file(s) listed, %d uploaded, %d failed, %d unsettled, %d too large; "
-        "server: %s",
+        "sync (%s): %d file(s) listed, %d uploaded, %d failed, %d still being written, "
+        "%d too large; server: %s",
         report.scope,
         report.listed,
         report.uploaded,
         len(report.failed),
-        report.skipped_unsettled,
+        len(report.unsettled),
         report.skipped_large,
         report.counts,
     )

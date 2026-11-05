@@ -75,6 +75,7 @@ def _entry(model: schemas.ManifestEntryModel) -> remote.ManifestEntry:
         mtime_ns=model.mtime_ns,
         blake3=model.blake3.lower() if model.blake3 else None,
         placeholder=model.placeholder,
+        unsettled=model.unsettled,
     )
 
 

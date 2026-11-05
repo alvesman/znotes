@@ -8,7 +8,11 @@ server classifies that listing exactly as a local scan classifies a walk
   so the existing path ACL isolates one owner's notes from another's;
 - a new or modified file whose bytes are not in the blob store yet is not
   written: it is returned in ``upload`` and the agent sends it with ``PUT``,
-  after which the same classification runs for that one path.
+  after which the same classification runs for that one path;
+- an entry flagged ``unsettled`` (still being written on the agent's machine)
+  is classified like an unsettled file of a local scan: nothing is written
+  and a known path keeps its row, instead of counting as missing because the
+  agent could not hash it yet.
 
 Every write happens in one transaction under the root's blocking lock
 (:func:`mynotes.scan.lock.root_xact_lock`), so uploads of one root queue up
@@ -58,6 +62,7 @@ class ManifestEntry:
     mtime_ns: int
     blake3: str | None = None
     placeholder: bool = False
+    unsettled: bool = False
 
 
 @dataclass
@@ -121,7 +126,7 @@ def entry_stats(
                 mtime_ns=int(entry.mtime_ns),
                 format=fmt,
                 placeholder=bool(entry.placeholder),
-                settled=True,
+                settled=not entry.unsettled,
                 content_hash=entry.blake3,
             )
         )

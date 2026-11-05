@@ -184,7 +184,7 @@ def handle_batch(batch: HintBatch) -> None:
             batch.root_id,
             _RETRY_DELAY_S,
         )
-        _defer_retry(batch)
+        defer_retry(batch)
     elif summary.unsettled:
         delay_s = get_settings().scan.settle_seconds + 1.0
         logger.info(
@@ -193,16 +193,17 @@ def handle_batch(batch: HintBatch) -> None:
             batch.root_id,
             delay_s,
         )
-        _defer_retry(HintBatch(batch.root_id, set(summary.unsettled)), delay_s=delay_s)
+        defer_retry(HintBatch(batch.root_id, set(summary.unsettled)), delay_s=delay_s)
 
 
 @dataclass
 class _PendingRetry:
-    """A batch waiting for the advisory lock, merged per root."""
+    """A batch waiting to be re-submitted, merged per root, with the handler that gets it."""
 
     rel_paths: set[str] = field(default_factory=set)
     overflow: bool = False
     due: float = 0.0
+    handler: Callable[[HintBatch], None] = handle_batch
 
 
 _PENDING: dict[int, _PendingRetry] = {}
@@ -211,43 +212,57 @@ _RETRY_THREAD: threading.Thread | None = None
 _RETRY_THREAD_LOCK = threading.Lock()
 
 
-def _defer_retry(batch: HintBatch, *, delay_s: float = _RETRY_DELAY_S) -> None:
-    """Merge ``batch`` into the pending retry list, due in ``delay_s`` (10 s by default)."""
+def defer_retry(
+    batch: HintBatch,
+    *,
+    delay_s: float = _RETRY_DELAY_S,
+    handler: Callable[[HintBatch], None] = handle_batch,
+) -> None:
+    """Merge ``batch`` into the pending retry list, due in ``delay_s`` (10 s by default).
+
+    ``handler`` receives the merged batch when it is due: the local scan by
+    default, or a watcher's own ``on_batch`` (the agent's sync). One root has
+    one handler; the latest call's handler wins.
+    """
     due = time.monotonic() + delay_s
     with _PENDING_LOCK:
         pending = _PENDING.get(batch.root_id)
         if pending is None:
-            _PENDING[batch.root_id] = _PendingRetry(set(batch.rel_paths), batch.overflow, due)
+            _PENDING[batch.root_id] = _PendingRetry(
+                set(batch.rel_paths), batch.overflow, due, handler
+            )
         else:
             pending.rel_paths |= batch.rel_paths
             pending.overflow = pending.overflow or batch.overflow
             pending.due = min(pending.due, due)
+            pending.handler = handler
     logger.debug("batch for root %d queued for retry", batch.root_id)
 
 
-def _take_due_batch() -> HintBatch | None:
-    """Pop the oldest due pending batch, or None when nothing is due."""
+def _take_due_batch() -> tuple[HintBatch, Callable[[HintBatch], None]] | None:
+    """Pop the oldest due pending batch with its handler, or None when nothing is due."""
     now = time.monotonic()
     with _PENDING_LOCK:
         for root_id, pending in _PENDING.items():
             if pending.due <= now:
                 del _PENDING[root_id]
-                return HintBatch(root_id, pending.rel_paths, pending.overflow)
+                return HintBatch(root_id, pending.rel_paths, pending.overflow), pending.handler
     return None
 
 
 def retry_deferred(stop: threading.Event, *, interval_s: float = _RETRY_POLL_S) -> None:
-    """Re-submit hint batches whose advisory-lock retry is due, until ``stop``."""
+    """Re-submit due hint batches to their handlers, until ``stop``."""
     while not stop.is_set():
-        batch = _take_due_batch()
-        if batch is None:
+        due = _take_due_batch()
+        if due is None:
             stop.wait(interval_s)
             continue
+        batch, handler = due
         try:
-            handle_batch(batch)
+            handler(batch)
         except Exception:
-            logger.exception("retry scan of root %d failed; deferring again", batch.root_id)
-            _defer_retry(batch)
+            logger.exception("retry of root %d failed; deferring again", batch.root_id)
+            defer_retry(batch, handler=handler)
 
 
 def _ensure_retry_thread(stop: threading.Event) -> None:
@@ -429,7 +444,7 @@ class RootWatcher:
             self.on_batch(batch)
         except Exception:
             logger.exception("batch handler failed for root %d; deferring retry", self.root_id)
-            _defer_retry(batch)
+            defer_retry(batch, handler=self.on_batch)
 
     def _emit_catchup(self) -> None:
         """Request a catch-up scan of the whole root after a failure."""

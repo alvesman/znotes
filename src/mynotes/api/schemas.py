@@ -236,6 +236,8 @@ class ManifestEntryModel(BaseModel):
     mtime_ns: int = Field(ge=0)
     blake3: str | None = Field(default=None, min_length=64, max_length=64)
     placeholder: bool = False
+    unsettled: bool = False
+    """Modified less than ``agent.settle_seconds`` ago: the server keeps what it has."""
 
 
 class ManifestRequest(BaseModel):

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 import unicodedata
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -24,10 +25,12 @@ from mynotes.scan.scanner import ScanSummary
 from mynotes.scan.watch import (
     _PENDING,
     HintBatch,
-    _defer_retry,
+    RootWatcher,
     _take_due_batch,
     batch_changes,
+    defer_retry,
     handle_batch,
+    retry_deferred,
     watcher_status_rows,
 )
 
@@ -173,7 +176,7 @@ def test_busy_lock_defers_merged_batch(monkeypatch: pytest.MonkeyPatch) -> None:
     assert pending.due > 0
 
     pending.due = 0.0
-    assert _take_due_batch() == HintBatch(7, {"a.md", "b.md"}, overflow=True)
+    assert _take_due_batch() == (HintBatch(7, {"a.md", "b.md"}, overflow=True), handle_batch)
     assert _take_due_batch() is None
 
 
@@ -195,8 +198,10 @@ def test_unsettled_files_are_retried_after_settle_time(
 
     recorder.unsettled = []
     pending.due = 0.0
-    batch = _take_due_batch()
-    assert batch == HintBatch(7, {"new.md"})
+    due = _take_due_batch()
+    assert due is not None
+    batch, handler = due
+    assert batch == HintBatch(7, {"new.md"}) and handler is handle_batch
     handle_batch(batch)
     assert recorder.calls[-1]["rel_paths"] == ["new.md"]
     assert _PENDING == {}
@@ -212,16 +217,45 @@ def test_settled_scan_defers_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_defer_retry_custom_delay(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("mynotes.scan.watch.time.monotonic", lambda: 50.0)
-    _defer_retry(HintBatch(3, {"x.md"}), delay_s=11.0)
+    defer_retry(HintBatch(3, {"x.md"}), delay_s=11.0)
     assert _PENDING[3].due == 61.0
 
 
 def test_defer_retry_keeps_earliest_due() -> None:
-    _defer_retry(HintBatch(2, {"x.md"}))
+    defer_retry(HintBatch(2, {"x.md"}))
     first_due = _PENDING[2].due
-    _defer_retry(HintBatch(2, {"y.md"}))
+    defer_retry(HintBatch(2, {"y.md"}))
     assert _PENDING[2].rel_paths == {"x.md", "y.md"}
     assert _PENDING[2].due == first_due
+
+
+def test_deferred_batches_go_back_to_their_own_handler(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A watcher with its own on_batch (the agent) gets its retries, not the local scan."""
+    monkeypatch.setattr("mynotes.scan.watch.time.monotonic", lambda: 10.0)
+    seen: list[HintBatch] = []
+    attempts = {"n": 0}
+
+    def flaky(batch: HintBatch) -> None:
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise RuntimeError("upload failed")
+        seen.append(batch)
+
+    watcher = RootWatcher.__new__(RootWatcher)
+    watcher.root_id = 0
+    watcher.on_batch = flaky
+    watcher._dispatch(HintBatch(0, {"a.md"}))
+    assert seen == [] and _PENDING[0].handler is flaky
+
+    _PENDING[0].due = 0.0
+    stop = threading.Event()
+
+    def take_once(*args: object, **kwargs: object) -> None:
+        stop.set()
+
+    monkeypatch.setattr(stop, "wait", take_once)
+    retry_deferred(stop, interval_s=0.0)
+    assert seen == [HintBatch(0, {"a.md"})] and _PENDING == {}
 
 
 def test_status_rows_flag_stale_entries(tmp_path: Path) -> None:

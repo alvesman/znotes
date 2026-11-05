@@ -148,6 +148,57 @@ def test_batches_sync_only_the_changed_paths(world) -> None:
     assert server.manifests[-1]["scope"] == "full"
 
 
+def test_file_being_written_is_listed_unsettled_and_resynced_later(
+    world, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Saving a note several times must not delete it on the server (nor lose the last save)."""
+    agent, server, folder = world
+    agent.full_sync()
+    deferred: list[tuple[HintBatch, float, Any]] = []
+    monkeypatch.setattr(
+        sync_mod,
+        "defer_retry",
+        lambda batch, *, delay_s, handler: deferred.append((batch, delay_s, handler)),
+    )
+
+    file = folder / "ideas" / "a.md"
+    file.write_text("# A being edited", encoding="utf-8")  # mtime now: not settled
+    agent.handle_batch(HintBatch(0, {"ideas/a.md"}))
+
+    last = server.manifests[-1]
+    assert last["scope"] == "paths" and last["paths"] == ["ideas/a.md"]
+    assert last["entries"] == [
+        {
+            "rel_path": "ideas/a.md",
+            "size": file.stat().st_size,
+            "mtime_ns": file.stat().st_mtime_ns,
+            "blake3": None,
+            "placeholder": False,
+            "unsettled": True,
+        }
+    ]
+    assert "ideas/a.md" in server.known  # the server kept its row
+    assert len(server.uploads) == 2  # nothing uploaded yet: no hash to offer
+    assert deferred == [
+        (HintBatch(0, {"ideas/a.md"}), agent.agent.settle_seconds + 1.0, agent.handle_batch)
+    ]
+
+    old = 1_600_000_000  # the retry arrives once the file has settled
+    os.utime(file, (old, old))
+    batch, _delay, handler = deferred[0]
+    handler(batch)
+    assert server.uploads[-1][0] == "ideas/a.md"
+    assert server.uploads[-1][1] == b"# A being edited"
+    assert len(deferred) == 1  # nothing more to wait for
+
+    # A full sync lists an unsettled file the same way instead of leaving it out.
+    file.write_text("# A again", encoding="utf-8")
+    report = agent.full_sync()
+    assert report.unsettled == ["ideas/a.md"] and report.skipped_unsettled == 1
+    entry = next(e for e in server.manifests[-1]["entries"] if e["rel_path"] == "ideas/a.md")
+    assert entry["unsettled"] is True and entry["blake3"] is None
+
+
 def test_bad_token_is_a_clear_error(tmp_path: Path) -> None:
     server = FakeServer()
     client = ServerClient(

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0rc16 (2026-11-05, preview of server mode)
+
+- **Agent:** a note saved several times in a row no longer disappears from the server. The agent
+  lists a file still being written as `unsettled` instead of leaving it out of the manifest, so
+  the server keeps what it has, and re-sends the file once it has settled (the last save brings
+  no further file event, so before this the note stayed `missing`, was deleted after the grace
+  period and only came back as a new document at the next full sync, 15 minutes later). The
+  watcher's deferred retries now go back to the agent's own sync instead of the local scan.
+  Agent and server must both run this version: an older server answers an `unsettled` entry
+  with an error.
+
 ## 0.4.0rc15 (2026-11-05, preview of server mode)
 
 - **Reviews:** the **Reviews** entry in the menu bar shows how many items wait in the three queues

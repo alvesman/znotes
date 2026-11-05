@@ -63,7 +63,7 @@ token with `ingest:<root>`.
 
 | Endpoint | Body / headers | Answer |
 |---|---|---|
-| `POST /v1/roots/{root}/manifest` | `{"scope": "full" \| "paths", "paths": [...], "entries": [{"rel_path", "size", "mtime_ns", "blake3", "placeholder"}]}`; `Content-Encoding: gzip` accepted | `{"scan_run_id", "counts", "upload": [paths whose bytes the server lacks], "actions": {path: action}, "skipped": [ignored extensions]}` |
+| `POST /v1/roots/{root}/manifest` | `{"scope": "full" \| "paths", "paths": [...], "entries": [{"rel_path", "size", "mtime_ns", "blake3", "placeholder", "unsettled"}]}` (an `unsettled` entry, still being written, keeps the server's row untouched); `Content-Encoding: gzip` accepted | `{"scan_run_id", "counts", "upload": [paths whose bytes the server lacks], "actions": {path: action}, "skipped": [ignored extensions]}` |
 | `PUT /v1/roots/{root}/files/{rel_path}` | raw bytes; headers `X-Content-Blake3`, `X-Mtime-Ns`, `X-Size` | `{"action", "content_hash", "size"}`; 422 on a hash mismatch, 413 over `storage.max_upload_mb`, 415 for a format mynotes does not extract |
 | `DELETE /v1/roots/{root}/files/{rel_path}[?force=true]` | | `{"action": "missing" \| "deleted"}` (missing first, deleted after `scan.delete_grace_seconds`; `force` deletes at once) |
 | `POST /v1/roots/{root}/files/{rel_path}/move` | `{"to", "size", "mtime_ns", "blake3"}` | `{"action": "moved" \| "new", "upload": [...]}` |
