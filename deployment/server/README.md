@@ -70,8 +70,25 @@ All commands run on the server, from the compose directory; each prints its secr
 | An agent feeding several roots          | `... token create --user alice --name laptop --root alice-notes --root alice-work`                        | Repeat `--root` for each                                                                                                                   |
 
 Later: `docker compose exec worker mynotes token list` shows them (id, user, scopes, last use) and
-`docker compose exec worker mynotes token revoke <id>` disables one; revoke and create a new one
-when a secret may have leaked.
+`docker compose exec worker mynotes token revoke <id>` disables one.
+
+### If someone loses a token
+
+A lost token locks a person out; it loses no notes. The server keeps only a hash of each token,
+so nobody can read a lost one back, but everything a person has (their root, read grants,
+review decisions, chat history) hangs off their user name, not the token. Replace it:
+
+```bash
+docker compose exec worker mynotes token list          # the id of the lost token
+docker compose exec worker mynotes token rotate <id>   # same user, name and scopes; the old one is revoked at once
+```
+
+The command prints the new secret once. The person pastes it into `mynotes agent setup` (Enter
+keeps the other answers) or the **Sign in** page; the agent then re-lists the folder and the
+server answers "unchanged" for every file, so nothing is uploaded again. Do the same when a
+token may have leaked. An administrator can never be locked out: these commands run inside the
+worker container and need no token. Tell people to keep their token in a password manager: the
+browser only holds it as a cookie for 30 days, and the agent keeps it in its settings file.
 
 ## The agent, on a person's machine
 
@@ -83,7 +100,7 @@ the machine has none). No clone is needed: the agent installs straight from the 
 repository at the server's version:
 
 ```bash
-uv tool install git+https://github.com/alvesman/znotes@v0.4.0rc21   # the server's version
+uv tool install git+https://github.com/alvesman/znotes@v0.4.0rc22   # the server's version
 mynotes agent setup                     # server URL, token, root, folder; checked against the server
 mynotes agent sync                      # one full sync, then exit
 mynotes agent run                       # sync, then watch the folder until stopped
@@ -108,7 +125,7 @@ folder, so it sees the file but never your shell's exports.
   not move to a new version. An agent on another version than the server logs a warning with
   this command at every sync.
 - A one-off run without installing anything:
-  `uvx --from git+https://github.com/alvesman/znotes@v0.4.0rc21 mynotes agent sync`.
+  `uvx --from git+https://github.com/alvesman/znotes@v0.4.0rc22 mynotes agent sync`.
 
 Or in a container, with the folder mounted read-only. The `-agent` image carries only what the
 agent needs (about a third of the server image):
@@ -118,7 +135,7 @@ docker run -d --name mynotes-agent --restart unless-stopped \
   -v "$HOME/Documents/notes:/notes:ro" \
   -e MYNOTES_AGENT_SERVER_URL=https://notes.example.org -e MYNOTES_AGENT_TOKEN=mn_... \
   -e MYNOTES_AGENT_ROOT=alice-notes -e MYNOTES_AGENT_PATH=/notes \
-  ghcr.io/alvesman/znotes:0.4.0rc21-agent              # the server's version, not "latest"
+  ghcr.io/alvesman/znotes:0.4.0rc22-agent              # the server's version, not "latest"
 ```
 
 The agent needs no database, search index or model endpoint. It hashes files once (cached),

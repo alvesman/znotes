@@ -1062,7 +1062,7 @@ mynotes token create --user alice --name web --web                   # her sign-
 mynotes token create --user admin --name me --admin                  # your own
 mynotes acl grant admin ""                                           # and read access to every root
 mynotes root list                                          # roots and when each agent was last seen
-mynotes token list / mynotes token revoke <id>
+mynotes token list / mynotes token revoke <id> / mynotes token rotate <id>   # rotate: a lost token, same rights, new secret
 ```
 
 (In the Docker setup of the server each command is prefixed with `docker compose exec worker`.) A token's scopes decide what it may do, and ACL grants decide what its user may read: `--root` grants that root to its user, while an admin token reads nothing until it is granted, as above.
@@ -1201,7 +1201,7 @@ On a server in Docker, run the `acl`, `root` and `token` commands as `docker com
 | `uv run mynotes root add NAME --remote --owner USER` | Create a root fed by a user's agent (server mode) |
 | `uv run mynotes root list` / `root remove NAME` | List the roots / take a remote root out of the index |
 | `uv run mynotes token create --user USER [--name LABEL] [--root NAME] [--web] [--admin]` | Create a personal token (printed once); `--name` labels it, such as `laptop` |
-| `uv run mynotes token list` / `token revoke ID` | List / revoke tokens |
+| `uv run mynotes token list` / `token revoke ID` / `token rotate ID` | List / revoke tokens; `rotate` replaces a lost or leaked one (same user, name and scopes, new secret) |
 | `uv run mynotes agent run` / `agent sync` / `agent status` | The agent on a person's machine (server mode) |
 
 ### Global options

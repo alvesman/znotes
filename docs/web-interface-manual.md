@@ -76,6 +76,8 @@ If the address doesn't work, see [Troubleshooting](#12-troubleshooting). If myno
 
 If your notes are on a mynotes server (server mode: [deployment/server](../deployment/server/README.md)), there is nothing to start: open the address your administrator gave you, such as `https://notes.example.org/`. The **Sign in** page asks for your personal token (it starts with `mn_`); paste it and click **Sign in**. You stay signed in in that browser for 30 days, or until you click **Sign out** at the right of the menu bar, next to your user name. You see only your own notes.
 
+Keep the token in a password manager: the browser does not store it beyond that cookie, and mynotes cannot show it again. If you lose it, ask your administrator for a new one (`mynotes token rotate`); nothing of yours is lost, the new token sees the same notes.
+
 ### Install as an app
 
 The web interface can be installed like an app, with its own icon and window, on a shared server (HTTPS) or on your own computer. Installing changes nothing about where your notes are: the app still talks to the server for everything.

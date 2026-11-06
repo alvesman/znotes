@@ -215,3 +215,35 @@ def test_service_install_agent_needs_the_agent_settings(
         reset_settings_cache()
     assert result.exit_code == 1
     assert "run 'mynotes agent setup' first" in result.output
+
+
+def test_token_rotate_prints_the_new_secret_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    from datetime import UTC, datetime
+
+    from mynotes.core import tokens
+    from mynotes.core.errors import NotFound
+
+    info = tokens.TokenInfo(
+        id=8,
+        principal="alice",
+        name="laptop",
+        token_prefix="mn_abcdef",
+        scopes=("ingest:alice-notes", "web"),
+        created_at=datetime(2026, 11, 6, tzinfo=UTC),
+        last_used_at=None,
+        revoked_at=None,
+    )
+
+    def rotate(token_id: int) -> tuple[str, tokens.TokenInfo]:
+        if token_id != 7:
+            raise NotFound(f"no token with id {token_id}")
+        return "mn_newsecretvalue", info
+
+    monkeypatch.setattr(tokens, "rotate_token", rotate)
+    result = runner.invoke(app, ["token", "rotate", "7"])
+    assert result.exit_code == 0, result.output
+    assert "Revoked token 7; new token 8 (laptop) for alice" in result.output
+    assert "ingest:alice-notes, web" in result.output
+    assert result.output.rstrip().endswith("mn_newsecretvalue")
+    missing = runner.invoke(app, ["token", "rotate", "99"])
+    assert missing.exit_code == 1 and "no token with id 99" in missing.output

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0rc22 (2026-11-06, preview of server mode)
+
+- **Lost tokens:** `mynotes token rotate <id>` replaces a lost or leaked token with a new
+  secret under the same user, name and scopes and revokes the old one at once; the person's
+  notes, roots and grants are untouched. The server README has a section on it and the
+  manuals tell people to keep the token in a password manager.
+
 ## 0.4.0rc21 (2026-11-06, preview of server mode)
 
 - **Web interface, installable as an app:** a web app manifest, proper icons (the favicon's

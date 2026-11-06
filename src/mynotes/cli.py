@@ -2719,6 +2719,31 @@ def token_revoke(
     console.print(f"[green]Revoked token {token_id}.[/]")
 
 
+@token_app.command("rotate")
+def token_rotate(
+    token_id: int = typer.Argument(..., help="The token id from 'token list'."),
+) -> None:
+    """Replace a lost or leaked token: a new secret with the same user, name and scopes.
+
+    The old token is revoked at once; the person's notes, roots and grants are
+    untouched, so the new secret sees exactly what the old one saw.
+    """
+    from mynotes.core import tokens
+    from mynotes.core.errors import NotFound
+
+    try:
+        secret, info = tokens.rotate_token(token_id)
+    except (ValueError, NotFound) as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(1) from exc
+    console.print(
+        f"[green]Revoked token {token_id}; new token {info.id} ({info.name}) for "
+        f"{info.principal}, scopes: {', '.join(info.scopes)}[/]"
+    )
+    console.print("Copy it now; it is not stored and cannot be shown again:")
+    console.print(secret, markup=False, highlight=False)
+
+
 acl_app = typer.Typer(help="Team-mode path ACL grants (read).")
 app.add_typer(acl_app, name="acl")
 

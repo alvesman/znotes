@@ -41,9 +41,21 @@ def test_token_lifecycle(settings_with_db: Settings) -> None:
         assert [t.id for t in tokens.list_tokens() if t.principal == user] == [info.id, again.id]
         assert tokens.verify_token("mn_not-a-real-secret") is None
 
-        tokens.revoke_token(info.id)
+        # A lost token is rotated: same user, name and scopes under a new secret; the old dies.
+        new_secret, rotated = tokens.rotate_token(info.id)
+        assert new_secret != secret and new_secret.startswith("mn_")
+        assert (rotated.principal, rotated.name, rotated.scopes) == (user, "laptop", info.scopes)
+        assert rotated.created_roots == ()  # the root exists: nothing new on the server
         assert tokens.verify_token(secret) is None
-        tokens.revoke_token(info.id)  # idempotent
+        fresh = tokens.verify_token(new_secret)
+        assert fresh is not None and fresh.id == rotated.id
+        assert tokens.principal_for(fresh).ingest_roots == {root}
+        with pytest.raises(NotFound):
+            tokens.rotate_token(999_999)
+
+        tokens.revoke_token(rotated.id)
+        assert tokens.verify_token(new_secret) is None
+        tokens.revoke_token(rotated.id)  # idempotent
         with pytest.raises(NotFound):
             tokens.revoke_token(999_999)
     finally:

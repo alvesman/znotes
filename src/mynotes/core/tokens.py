@@ -217,6 +217,32 @@ def revoke_token(token_id: int) -> None:
             row.revoked_at = datetime.now(UTC)
 
 
+def rotate_token(token_id: int) -> tuple[str, TokenInfo]:
+    """Replace a token with a new secret: same user, name and scopes; the old one revoked.
+
+    For a lost or leaked token: the person's roots, grants and history hang off
+    the user name, so the new token sees exactly what the old one saw.
+
+    Returns:
+        ``(secret, info)`` of the new token, like :func:`create_token`.
+
+    Raises:
+        NotFound: When no token of the workspace has that id.
+    """
+    workspace_id = _workspace_id()
+    with session_scope() as session:
+        row = session.execute(
+            select(ApiToken).where(ApiToken.id == token_id, ApiToken.workspace_id == workspace_id)
+        ).scalar_one_or_none()
+        if row is None:
+            raise NotFound(f"no token with id {token_id}")
+        principal, name, scopes = row.principal, row.name, list(row.scopes)
+    secret, info = create_token(principal, name, scopes)
+    revoke_token(token_id)
+    logger.info("rotated token %s into %s for %s", token_id, info.id, principal)
+    return secret, info
+
+
 def _info(row: ApiToken) -> TokenInfo:
     return TokenInfo(
         id=int(row.id),
