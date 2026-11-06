@@ -117,3 +117,9 @@ def test_https_behind_a_proxy_marks_the_cookie_secure(token_mode: TestClient) ->
 def test_local_mode_has_no_sign_out() -> None:
     page = TestClient(create_app()).get("/ui/chat")
     assert page.status_code == 200 and 'action="/ui/logout"' not in page.text
+
+
+def test_app_shell_installs_before_signing_in(token_mode: TestClient) -> None:
+    """The manifest, the worker and the offline notice need no token (like /favicon.ico)."""
+    for path in ("/manifest.webmanifest", "/sw.js", "/static/offline.html"):
+        assert token_mode.get(path).status_code == 200, path

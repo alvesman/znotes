@@ -1,5 +1,6 @@
 /* Shell behaviour shared by every page (loaded deferred from base.html): the theme switch, the
-   phone menu, the panels that collapse on phones, the tab state and Select all on Reviews. theme.js has already applied the remembered theme; this file only wires
+   phone menu, the panels that collapse on phones, the tab state and Select all on Reviews, and
+   the service worker registration. theme.js has already applied the remembered theme; this file only wires
    the buttons. Everything works without it: the menu links are visible when <html> lacks
    the "js" class that theme.js adds. */
 (function () {
@@ -126,12 +127,30 @@
     });
   }
 
+  // The service worker (served by /sw.js) makes the app installable and shows the offline
+  // notice when a page cannot be loaded; it caches static assets only. Secure contexts only
+  // (https, or localhost), and a failed registration changes nothing.
+  function initServiceWorker() {
+    if (!("serviceWorker" in navigator) || !window.isSecureContext) {
+      return;
+    }
+    function register() {
+      navigator.serviceWorker.register("/sw.js").catch(function () {});
+    }
+    if (document.readyState === "complete") {
+      register();
+    } else {
+      window.addEventListener("load", register);
+    }
+  }
+
   function init() {
     initThemeSwitch(document);
     initMenu(document);
     initCollapsibles(document);
     initTabs(document);
     initSelectAll();
+    initServiceWorker();
   }
 
   if (document.readyState === "loading") {

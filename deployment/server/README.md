@@ -83,7 +83,7 @@ the machine has none). No clone is needed: the agent installs straight from the 
 repository at the server's version:
 
 ```bash
-uv tool install git+https://github.com/alvesman/znotes@v0.4.0rc20   # the server's version
+uv tool install git+https://github.com/alvesman/znotes@v0.4.0rc21   # the server's version
 mynotes agent setup                     # server URL, token, root, folder; checked against the server
 mynotes agent sync                      # one full sync, then exit
 mynotes agent run                       # sync, then watch the folder until stopped
@@ -108,7 +108,7 @@ folder, so it sees the file but never your shell's exports.
   not move to a new version. An agent on another version than the server logs a warning with
   this command at every sync.
 - A one-off run without installing anything:
-  `uvx --from git+https://github.com/alvesman/znotes@v0.4.0rc20 mynotes agent sync`.
+  `uvx --from git+https://github.com/alvesman/znotes@v0.4.0rc21 mynotes agent sync`.
 
 Or in a container, with the folder mounted read-only. The `-agent` image carries only what the
 agent needs (about a third of the server image):
@@ -118,7 +118,7 @@ docker run -d --name mynotes-agent --restart unless-stopped \
   -v "$HOME/Documents/notes:/notes:ro" \
   -e MYNOTES_AGENT_SERVER_URL=https://notes.example.org -e MYNOTES_AGENT_TOKEN=mn_... \
   -e MYNOTES_AGENT_ROOT=alice-notes -e MYNOTES_AGENT_PATH=/notes \
-  ghcr.io/alvesman/znotes:0.4.0rc20-agent              # the server's version, not "latest"
+  ghcr.io/alvesman/znotes:0.4.0rc21-agent              # the server's version, not "latest"
 ```
 
 The agent needs no database, search index or model endpoint. It hashes files once (cached),

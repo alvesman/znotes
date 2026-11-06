@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0rc21 (2026-11-06, preview of server mode)
+
+- **Web interface, installable as an app:** a web app manifest, proper icons (the favicon's
+  scroll, now crisp at every size) and a service worker. Chrome, Edge and Android offer
+  *Install*; on iOS use Share, *Add to Home Screen*. The worker caches only the static files
+  and shows a *You are offline* notice when a page cannot be loaded; notes, searches and
+  answers are never stored on the device.
+
 ## 0.4.0rc20 (2026-11-05, preview of server mode)
 
 - **Agent install without a clone:** `uv tool install git+https://github.com/alvesman/znotes@v<version>`

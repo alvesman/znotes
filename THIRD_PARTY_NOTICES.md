@@ -9,6 +9,7 @@ mynotes is licensed under the GNU Affero General Public License v3.0 or later (s
 | htmx 2.0.11 | `src/mynotes/web/static/htmx-2.0.11.min.js` | 0BSD | https://htmx.org |
 | htmx json-enc extension 2.0.3 | `src/mynotes/web/static/json-enc-2.0.3.js` | 0BSD | https://htmx.org/extensions/json-enc/ |
 | Cytoscape.js 3.34.3 | `src/mynotes/web/static/cytoscape-3.34.3.min.js` | MIT | https://js.cytoscape.org |
+| Twemoji 14 scroll glyph (U+1F4DC), the app icon | `src/mynotes/web/static/icon.svg and the icon-*.png / apple-touch-icon.png renders` | CC-BY-4.0 | https://github.com/twitter/twemoji |
 | fastText language identification model lid.176.ftz | `fast_langdetect/resources/lid.176.ftz, inside the fast-langdetect package` | CC-BY-SA-3.0 | https://fasttext.cc/docs/en/language-identification.html |
 
 ## Python runtime dependencies

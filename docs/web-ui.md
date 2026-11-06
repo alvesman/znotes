@@ -116,6 +116,26 @@ FastAPI app as the JSON API (`mynotes serve`):
   `asset()` template global, which appends the file's mtime as `?v=` so a changed
   script or stylesheet is never served from the browser cache. There is no CDN
   and no inline script/style (the CSP forbids them).
+- Installable app (PWA, `web/pwa.py`): `GET /manifest.webmanifest` (name, `/ui/chat` as
+  start page and id, `standalone`, the `--bg`/`--accent` colours, the icons) and
+  `GET /sw.js`, which serves `static/sw.js` with two placeholders filled in: the cache name
+  `mynotes-<version>-<hash>` and the precache list (`offline.html`, `offline.css`, the shell
+  assets through `asset()`, so with their `?v=` stamps, and htmx). The hash covers the stamped
+  URLs, so any changed asset is a different `/sw.js`, a new cache, and the old one deleted on
+  activate (`skipWaiting` + `clients.claim`). The worker's fetch rules, in order: non-GET,
+  other origins, `/v1/` and `/ui/partials/` are never touched (the chat stream and the per-user
+  partials); page navigations are network-only with the offline notice as the fallback on a
+  network failure (the sign-in redirect passes through); `/static/` is cache-first keyed by
+  the full URL; everything else goes to the network. Nothing under `/ui/` is ever stored, so
+  signing out needs no cache work. `ui.js` registers the worker in secure contexts only.
+  The raw `/static/sw.js` (placeholders intact) stays reachable but is never registered.
+  `base.html` links the manifest, an opaque 180 px `apple-touch-icon.png` and two
+  `theme-color` metas (light/dark `--bg`). The icons are the Twemoji 14 scroll glyph
+  (U+1F4DC, CC-BY 4.0; the favicon is the same drawing): `icon.svg` is the upstream SVG,
+  the PNGs (192, 512, a 512 maskable with the glyph at 60% on `#fbfbfa`, the 180 Apple icon at
+  80%) were rendered once with headless Chrome from a one-line HTML wrapper per size
+  (`google-chrome --headless=new --window-size=<n>,<n> --default-background-color=00000000
+  --screenshot=<out>.png <wrapper>.html`) and committed; nothing runs at build time.
 - Layout and styling: `app.css` is one file in numbered sections (tokens, base,
   shell, forms, then one per page); layouts use CSS grid with two breakpoints,
   `max-width: 48rem` (phones: the menu folds, panels collapse, touch-sized

@@ -1,7 +1,8 @@
 """The FastAPI application factory (PLAN.md §10.2).
 
 ``create_app()`` wires the routers under ``/v1``, the web UI under ``/ui``
-(with ``/static`` for its assets, ``/favicon.ico``, and ``/`` redirecting to the chat page) plus
+(with ``/static`` for its assets, ``/favicon.ico``, the web app manifest and service worker of
+``web/pwa.py``, and ``/`` redirecting to the chat page) plus
 ``/healthz``, and maps the facade's errors to HTTP responses. There is no CORS
 by default: the web UI is served from the same origin (task 47). Bind
 ``mynotes serve`` to localhost unless an auth mode other than ``none`` is
@@ -33,6 +34,7 @@ from mynotes.api.routes import (
 )
 from mynotes.core.errors import Ambiguous, Forbidden, NotFound
 from mynotes.llm.errors import EndpointUnavailable
+from mynotes.web import pwa
 from mynotes.web import routes as web_routes
 
 logger = logging.getLogger(__name__)
@@ -58,6 +60,7 @@ def create_app() -> FastAPI:
     app.include_router(admin.router)
     app.include_router(ingest.router)
     app.include_router(web_routes.router)
+    app.include_router(pwa.router)  # /manifest.webmanifest and /sw.js
     app.mount("/static", StaticFiles(directory=web_routes.STATIC_DIR), name="static")
 
     @app.get("/", include_in_schema=False)

@@ -107,9 +107,10 @@ def _cytoscape_src() -> str:
 templates.env.globals["CYTOSCAPE_SRC"] = _cytoscape_src()
 
 
-def _asset(name: str) -> str:
+def asset(name: str) -> str:
     """``/static/<name>`` with the file's mtime as ``?v=``: a changed script or stylesheet is
-    never served from the browser cache (the static mount sends no cache headers)."""
+    never served from the browser cache (the static mount sends no cache headers). The
+    service worker (``web/pwa.py``) precaches the same URLs, so the two always agree."""
     try:
         stamp = int((STATIC_DIR / name).stat().st_mtime)
     except OSError:
@@ -117,7 +118,7 @@ def _asset(name: str) -> str:
     return f"/static/{name}?v={stamp}"
 
 
-templates.env.globals["asset"] = _asset
+templates.env.globals["asset"] = asset
 templates.env.globals["PROJECT_URL"] = PROJECT_URL
 templates.env.globals["VERSION"] = __version__
 
